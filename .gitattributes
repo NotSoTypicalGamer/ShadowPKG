@@ -1,0 +1,3 @@
+# Keep line endings LF in the repo so the Docker build and the container see
+# the same bytes regardless of the machine that committed.
+* text=auto eol=lf

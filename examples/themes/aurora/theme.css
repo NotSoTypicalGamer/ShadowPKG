@@ -1,0 +1,4 @@
+/* Extra rules for the Aurora theme. Each one is scoped to this theme when it is installed, so it cannot touch anyone else's. */
+h1 { text-shadow: 0 0 14px rgba(46, 230, 166, 0.55); }
+header { border-bottom: 1px solid rgba(46, 230, 166, 0.35); }
+.panel { backdrop-filter: blur(6px); }

@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - name: Syntax-check server.js
+        run: node --check server.js
+      - name: Built-in theme readability guard
+        run: node tools/themes/check-bases.js
+      - name: Smoke test (boot + fetch the page)
+        run: node test/smoke.js

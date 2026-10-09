@@ -1,0 +1,22 @@
+{
+  "shadowtheme": 1,
+  "id": "sunset",
+  "name": "Sunset",
+  "author": "ShadowPKG examples",
+  "description": "A warm dark theme: plum background, orange accent.",
+  "version": "1.0",
+  "base": "midnight",
+  "palette": {
+    "background": "#1b1020",
+    "surface": "#2a1a33",
+    "text": "#f4eaff",
+    "accent": "#ff7a45",
+    "good": "#4cd07d",
+    "bad": "#ff5c6c",
+    "warn": "#ffcf6a"
+  },
+  "tokens": {
+    "--radius": "10px",
+    "--radius-lg": "14px"
+  }
+}

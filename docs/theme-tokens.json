@@ -1,0 +1,1696 @@
+{
+  "version": 1,
+  "count": 48,
+  "note": "Generated from server.js (THEME_TOKENS) and index.html (THEME_TOKEN_LIST, THEME_PAIRS, deriveTokens) by gen-tokens.js. version is the shadowtheme format number this catalogue belongs to. derivedFrom lists the manifest inputs (palette keys, mode, base) whose change can change the derived value; an explicit tokens override replaces the derived value. contrastPairs lists every text/background pair the token is part of: kind required = the derivation guarantees it and the readability report lists it, extra = also reported, guard = only the runtime guard looks.",
+  "groups": [
+    {
+      "id": "page",
+      "title": "Page"
+    },
+    {
+      "id": "panel",
+      "title": "Panels"
+    },
+    {
+      "id": "selection",
+      "title": "Selection"
+    },
+    {
+      "id": "button",
+      "title": "Buttons"
+    },
+    {
+      "id": "outline",
+      "title": "Outline buttons"
+    },
+    {
+      "id": "danger",
+      "title": "Delete buttons"
+    },
+    {
+      "id": "input",
+      "title": "Inputs"
+    },
+    {
+      "id": "status",
+      "title": "Status colours"
+    },
+    {
+      "id": "dialog",
+      "title": "Dialogs and the tray"
+    },
+    {
+      "id": "warning",
+      "title": "Warnings"
+    },
+    {
+      "id": "shape",
+      "title": "Shape and type"
+    }
+  ],
+  "types": {
+    "colour": "#rgb #rgba #rrggbb #rrggbbaa, rgb()/rgba()/hsl()/hsla() with plain numbers, or transparent",
+    "paint": "a colour, or a linear-gradient() / radial-gradient() of 2 to 6 stops",
+    "image": "none, or 1 to 3 comma-separated gradient or url() layers",
+    "shadow": "none, or 1 to 4 comma-separated [inset] x y [blur [spread]] colour",
+    "length": "0, or a number with px (at most 64), rem or em (at most 4)",
+    "font": "1 to 8 comma-separated font families, at most 200 characters"
+  },
+  "paletteKeys": [
+    "background",
+    "surface",
+    "text",
+    "accent",
+    "surface2",
+    "dialog",
+    "tray",
+    "link",
+    "good",
+    "bad",
+    "warn"
+  ],
+  "unusedPaletteKeys": [
+    "surface2"
+  ],
+  "tokens": [
+    {
+      "name": "--meta",
+      "type": "colour",
+      "group": "page",
+      "description": "The browser's own top bar on phones (the theme-color meta tag). The page draws nothing with it.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "mode",
+        "base"
+      ],
+      "derivation": "The page colour (--bg).",
+      "contrastPairs": []
+    },
+    {
+      "name": "--bg",
+      "type": "colour",
+      "group": "page",
+      "description": "The page behind everything. --bg-image is drawn over it.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "mode",
+        "base"
+      ],
+      "derivation": "palette.background, moved off the mid-tones until text can reach 7.3:1 on it (toward dark in a dark theme, toward light in a light one). If the surface is on the other side of the page (dark page, light panels) the two are pushed apart to 11:1 (13.5:1 on a glossy base).",
+      "contrastPairs": [
+        {
+          "label": "Text on the page",
+          "foreground": "--text",
+          "background": "--bg",
+          "role": "background",
+          "min": 7,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Muted text on the page",
+          "foreground": "--muted",
+          "background": "--bg",
+          "role": "background",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Links on the page",
+          "foreground": "--link",
+          "background": "--bg",
+          "role": "background",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "OK text on the page",
+          "foreground": "--ok",
+          "background": "--bg",
+          "role": "background",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Error text on the page",
+          "foreground": "--err",
+          "background": "--bg",
+          "role": "background",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Focus ring on the page",
+          "foreground": "--focus",
+          "background": "--bg",
+          "role": "background",
+          "min": 3,
+          "kind": "required",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--bg-image",
+      "type": "image",
+      "group": "page",
+      "description": "Up to 3 gradient or url() layers drawn over --bg on the body. none for nothing. The first layer is on top.",
+      "derivedFrom": [],
+      "derivation": "Always none; only a token override sets it.",
+      "contrastPairs": []
+    },
+    {
+      "name": "--text",
+      "type": "colour",
+      "group": "page",
+      "description": "Main text on the page, in dialogs and on the bottom tray.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "text",
+        "dialog",
+        "tray",
+        "mode",
+        "base"
+      ],
+      "derivation": "palette.text (default near-white on a dark page, near-black on a light one), moved until it reaches 7.1:1 on the page, the dialog background and every tray colour.",
+      "contrastPairs": [
+        {
+          "label": "Text on the page",
+          "foreground": "--text",
+          "background": "--bg",
+          "role": "foreground",
+          "min": 7,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Text in dialogs",
+          "foreground": "--text",
+          "background": "--dlg-bg",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Text on the bottom bar",
+          "foreground": "--text",
+          "background": "--tray",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--muted",
+      "type": "colour",
+      "group": "page",
+      "description": "Quiet text on the page and in dialogs: captions, hints, placeholders, breadcrumb separators, the footer credits.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "text",
+        "dialog",
+        "tray",
+        "mode",
+        "base"
+      ],
+      "derivation": "The text colour mixed 40% toward the page colour, moved until it reaches 5.3:1 (a margin over 4.5:1) on the page, dialogs and the tray.",
+      "contrastPairs": [
+        {
+          "label": "Muted text on the page",
+          "foreground": "--muted",
+          "background": "--bg",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Muted text in dialogs",
+          "foreground": "--muted",
+          "background": "--dlg-bg",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Muted text on the bottom bar",
+          "foreground": "--muted",
+          "background": "--tray",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--link",
+      "type": "colour",
+      "group": "page",
+      "description": "The title (h1), breadcrumb links, the library menu, running-state lines on the page and the count on the tray.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "accent",
+        "dialog",
+        "tray",
+        "link",
+        "mode",
+        "base"
+      ],
+      "derivation": "palette.link, else palette.accent; moved until it reaches 4.7:1 on the page, dialogs and the tray.",
+      "contrastPairs": [
+        {
+          "label": "Links on the page",
+          "foreground": "--link",
+          "background": "--bg",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Links in dialogs",
+          "foreground": "--link",
+          "background": "--dlg-bg",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Links on the bottom bar",
+          "foreground": "--link",
+          "background": "--tray",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--focus",
+      "type": "colour",
+      "group": "page",
+      "description": "The keyboard focus outline; also the border of a focused text box and of the chosen theme in the picker.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "accent",
+        "mode",
+        "base"
+      ],
+      "derivation": "palette.accent, moved until it reaches 3.1:1 on the page and on the panel.",
+      "contrastPairs": [
+        {
+          "label": "Focus ring on the page",
+          "foreground": "--focus",
+          "background": "--bg",
+          "role": "foreground",
+          "min": 3,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Focus ring on panels",
+          "foreground": "--focus",
+          "background": "--panel",
+          "role": "foreground",
+          "min": 3,
+          "kind": "required",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--panel",
+      "type": "paint",
+      "group": "panel",
+      "description": "Panels: the file list, cards, menus, the toolbar, toasts. A gradient gives shading.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "mode",
+        "base"
+      ],
+      "derivation": "palette.surface. Flat bases: one colour. Glossy bases: a gradient from 3.5% lighter to 3.5% darker. Every stop is moved off the mid-tones until text can reach 7.3:1 on it.",
+      "contrastPairs": [
+        {
+          "label": "Text on panels",
+          "foreground": "--panel-text",
+          "background": "--panel",
+          "role": "background",
+          "min": 7,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Muted text on panels",
+          "foreground": "--panel-muted",
+          "background": "--panel",
+          "role": "background",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Done text on panels",
+          "foreground": "--panel-ok",
+          "background": "--panel",
+          "role": "background",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Error text on panels",
+          "foreground": "--panel-err",
+          "background": "--panel",
+          "role": "background",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Busy text on panels",
+          "foreground": "--panel-busy",
+          "background": "--panel",
+          "role": "background",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Warning text on panels",
+          "foreground": "--panel-warn",
+          "background": "--panel",
+          "role": "background",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Icons on panels",
+          "foreground": "--icon",
+          "background": "--panel",
+          "role": "background",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Danger buttons on panels",
+          "foreground": "--danger-text",
+          "background": "--panel",
+          "role": "background",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Focus ring on panels",
+          "foreground": "--focus",
+          "background": "--panel",
+          "role": "background",
+          "min": 3,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Done tag",
+          "foreground": "--panel-ok",
+          "background": "--panel",
+          "role": "background",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": "done"
+        },
+        {
+          "label": "Failed tag",
+          "foreground": "--panel-err",
+          "background": "--panel",
+          "role": "background",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": "failed"
+        },
+        {
+          "label": "Incomplete tag",
+          "foreground": "--panel-warn",
+          "background": "--panel",
+          "role": "background",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": "stalled"
+        },
+        {
+          "label": "Working tag",
+          "foreground": "--panel-busy",
+          "background": "--panel",
+          "role": "background",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": "busy"
+        },
+        {
+          "label": "Stopped tag",
+          "foreground": "--panel-muted",
+          "background": "--panel",
+          "role": "background",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": "stopped"
+        }
+      ]
+    },
+    {
+      "name": "--panel-text",
+      "type": "colour",
+      "group": "panel",
+      "description": "Text on panels.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "text",
+        "dialog",
+        "tray",
+        "mode",
+        "base"
+      ],
+      "derivation": "The text colour when it reaches 7.1:1 on every panel stop; otherwise near-white or near-black tinted with the surface hue, at 7.1:1.",
+      "contrastPairs": [
+        {
+          "label": "Text on panels",
+          "foreground": "--panel-text",
+          "background": "--panel",
+          "role": "foreground",
+          "min": 7,
+          "kind": "required",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--panel-muted",
+      "type": "colour",
+      "group": "panel",
+      "description": "Quiet text on panels: file details, timestamps, list header text, the History labels, the Cancelled pill.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "text",
+        "dialog",
+        "tray",
+        "warn",
+        "mode",
+        "base"
+      ],
+      "derivation": "The panel text mixed 38% toward the panel colour, moved until it reaches 4.7:1 on the panel, the list header, a hovered row and the Cancelled pill.",
+      "contrastPairs": [
+        {
+          "label": "Muted text on panels",
+          "foreground": "--panel-muted",
+          "background": "--panel",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Muted text on a list header",
+          "foreground": "--panel-muted",
+          "background": "--panel-head",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": null
+        },
+        {
+          "label": "Muted text on a hovered row",
+          "foreground": "--panel-muted",
+          "background": "--hover",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": null
+        },
+        {
+          "label": "Muted text on outline buttons",
+          "foreground": "--panel-muted",
+          "background": "--ghost-bg",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": null
+        },
+        {
+          "label": "Stopped tag",
+          "foreground": "--panel-muted",
+          "background": "--panel",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": "stopped"
+        }
+      ]
+    },
+    {
+      "name": "--panel-head",
+      "type": "colour",
+      "group": "panel",
+      "description": "The background of a list's header row.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "text",
+        "dialog",
+        "tray",
+        "mode",
+        "base"
+      ],
+      "derivation": "The panel colour mixed 7% toward the panel text.",
+      "contrastPairs": [
+        {
+          "label": "Muted text on a list header",
+          "foreground": "--panel-muted",
+          "background": "--panel-head",
+          "role": "background",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--line",
+      "type": "colour",
+      "group": "panel",
+      "description": "Dividers and borders: panels, rows, menus, dialogs, the toolbar, the library menu.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "text",
+        "dialog",
+        "tray",
+        "mode",
+        "base"
+      ],
+      "derivation": "The panel colour mixed 24% toward the panel text.",
+      "contrastPairs": []
+    },
+    {
+      "name": "--hover",
+      "type": "colour",
+      "group": "panel",
+      "description": "A row or menu item under the pointer.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "text",
+        "dialog",
+        "tray",
+        "mode",
+        "base"
+      ],
+      "derivation": "The panel colour mixed 5% toward the panel text.",
+      "contrastPairs": [
+        {
+          "label": "Muted text on a hovered row",
+          "foreground": "--panel-muted",
+          "background": "--hover",
+          "role": "background",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--panel-shadow",
+      "type": "shadow",
+      "group": "panel",
+      "description": "The edge and shadow of panels, menus and the toolbar (a box-shadow list).",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "mode",
+        "base"
+      ],
+      "derivation": "Glossy bases: a light and a dark bevel plus 0 3px 0 rgba(0,0,0,.3). Flat bases: none in a dark theme, 0 1px 3px rgba(0,0,0,.12) in a light one.",
+      "contrastPairs": []
+    },
+    {
+      "name": "--icon",
+      "type": "colour",
+      "group": "panel",
+      "description": "Folder and file icons. Also the running-state colour on panels when --panel-busy is not set.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "accent",
+        "mode",
+        "base"
+      ],
+      "derivation": "palette.accent, moved until it reaches 4.7:1 on the panel and on the Building pill.",
+      "contrastPairs": [
+        {
+          "label": "Icons on panels",
+          "foreground": "--icon",
+          "background": "--panel",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--sel",
+      "type": "paint",
+      "group": "selection",
+      "description": "A selected row, the current menu item, a checked filter chip, the active profile.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "accent",
+        "mode",
+        "base"
+      ],
+      "derivation": "The panel colour mixed 26% (light panel) or 32% (dark panel) toward palette.accent, moved until text can reach 5:1 (5.6:1 on a glossy base). Glossy bases: a gradient 3% lighter to 3% darker.",
+      "contrastPairs": [
+        {
+          "label": "Selected row text",
+          "foreground": "--sel-text",
+          "background": "--sel",
+          "role": "background",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Selected row, muted text",
+          "foreground": "--sel-muted",
+          "background": "--sel",
+          "role": "background",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--sel-text",
+      "type": "colour",
+      "group": "selection",
+      "description": "Text on a selected row.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "text",
+        "accent",
+        "dialog",
+        "tray",
+        "mode",
+        "base"
+      ],
+      "derivation": "The panel text, moved until it reaches 4.7:1 on the selection.",
+      "contrastPairs": [
+        {
+          "label": "Selected row text",
+          "foreground": "--sel-text",
+          "background": "--sel",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--sel-muted",
+      "type": "colour",
+      "group": "selection",
+      "description": "Quiet text on a selected row.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "text",
+        "accent",
+        "dialog",
+        "tray",
+        "mode",
+        "base"
+      ],
+      "derivation": "The selection text mixed 30% toward the selection colour, moved until it reaches 4.7:1 on the selection.",
+      "contrastPairs": [
+        {
+          "label": "Selected row, muted text",
+          "foreground": "--sel-muted",
+          "background": "--sel",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--check",
+      "type": "colour",
+      "group": "selection",
+      "description": "The tick of native checkboxes (accent-color).",
+      "derivedFrom": [
+        "accent",
+        "base"
+      ],
+      "derivation": "The accent as it ends up under --accent (its first stop).",
+      "contrastPairs": []
+    },
+    {
+      "name": "--accent",
+      "type": "paint",
+      "group": "button",
+      "description": "Main buttons, the progress bar fill and the count bubble.",
+      "derivedFrom": [
+        "accent",
+        "base"
+      ],
+      "derivation": "palette.accent, moved until white (or #0b0b12, whichever moves it less) reaches 5.2:1 on it. Glossy bases: a gradient 5% lighter to 5% darker.",
+      "contrastPairs": [
+        {
+          "label": "Button text",
+          "foreground": "--on-accent",
+          "background": "--accent",
+          "role": "background",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--accent-2",
+      "type": "paint",
+      "group": "button",
+      "description": "A main button under the pointer.",
+      "derivedFrom": [
+        "accent",
+        "base"
+      ],
+      "derivation": "The accent 7% lighter, moved until the button text reaches 4.7:1 on it.",
+      "contrastPairs": [
+        {
+          "label": "Button text, hovered",
+          "foreground": "--on-accent",
+          "background": "--accent-2",
+          "role": "background",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--on-accent",
+      "type": "colour",
+      "group": "button",
+      "description": "Text on main buttons.",
+      "derivedFrom": [
+        "accent",
+        "base"
+      ],
+      "derivation": "White or #0b0b12: whichever needs the accent moved less.",
+      "contrastPairs": [
+        {
+          "label": "Button text",
+          "foreground": "--on-accent",
+          "background": "--accent",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Button text, hovered",
+          "foreground": "--on-accent",
+          "background": "--accent-2",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--ghost-bg",
+      "type": "paint",
+      "group": "outline",
+      "description": "Secondary buttons (Refresh, Test, Edit), the target buttons and filter chips.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "dialog",
+        "warn",
+        "mode",
+        "base"
+      ],
+      "derivation": "Flat bases whose panels are on the page side: transparent. Otherwise the panel colour.",
+      "contrastPairs": [
+        {
+          "label": "Outline button text",
+          "foreground": "--ghost-text",
+          "background": "--ghost-bg",
+          "role": "background",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Muted text on outline buttons",
+          "foreground": "--panel-muted",
+          "background": "--ghost-bg",
+          "role": "background",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": null
+        },
+        {
+          "label": "Done marks on outline buttons",
+          "foreground": "--panel-ok",
+          "background": "--ghost-bg",
+          "role": "background",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": null
+        },
+        {
+          "label": "Error marks on outline buttons",
+          "foreground": "--panel-err",
+          "background": "--ghost-bg",
+          "role": "background",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": null
+        },
+        {
+          "label": "Warning marks on outline buttons",
+          "foreground": "--panel-warn",
+          "background": "--ghost-bg",
+          "role": "background",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--ghost-hover",
+      "type": "paint",
+      "group": "outline",
+      "description": "A secondary button under the pointer.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "text",
+        "dialog",
+        "tray",
+        "warn",
+        "mode",
+        "base"
+      ],
+      "derivation": "Flat bases whose panels are on the page side: the dialog colour mixed 10% toward the text. Otherwise the panel 5% lighter.",
+      "contrastPairs": [
+        {
+          "label": "Outline button text, hovered",
+          "foreground": "--ghost-text",
+          "background": "--ghost-hover",
+          "role": "background",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--ghost-text",
+      "type": "colour",
+      "group": "outline",
+      "description": "Text on a secondary button.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "text",
+        "accent",
+        "dialog",
+        "tray",
+        "link",
+        "warn",
+        "mode",
+        "base"
+      ],
+      "derivation": "The link colour (flat) or the panel text (otherwise), moved until it reaches 4.7:1 on the button and its hover.",
+      "contrastPairs": [
+        {
+          "label": "Outline button text",
+          "foreground": "--ghost-text",
+          "background": "--ghost-bg",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Outline button text, hovered",
+          "foreground": "--ghost-text",
+          "background": "--ghost-hover",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Outline button text in warning boxes",
+          "foreground": "--ghost-text",
+          "background": "--warn-bg",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--ghost-line",
+      "type": "colour",
+      "group": "outline",
+      "description": "The border of a secondary button.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "text",
+        "dialog",
+        "tray",
+        "mode",
+        "base"
+      ],
+      "derivation": "The same colour as --line.",
+      "contrastPairs": []
+    },
+    {
+      "name": "--danger-text",
+      "type": "colour",
+      "group": "danger",
+      "description": "Delete buttons: the text.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "dialog",
+        "tray",
+        "bad",
+        "warn",
+        "mode",
+        "base"
+      ],
+      "derivation": "palette.bad, moved until it reaches 4.7:1 on the panel (and on the dialog and the hover when the panels are on the page side).",
+      "contrastPairs": [
+        {
+          "label": "Danger buttons on panels",
+          "foreground": "--danger-text",
+          "background": "--panel",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Danger buttons, hovered",
+          "foreground": "--danger-text",
+          "background": "--danger-hover",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": null
+        },
+        {
+          "label": "Danger buttons in dialogs",
+          "foreground": "--danger-text",
+          "background": "--dlg-bg",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": null
+        },
+        {
+          "label": "Danger buttons on the bottom bar",
+          "foreground": "--danger-text",
+          "background": "--tray",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": null
+        },
+        {
+          "label": "Danger buttons in warning boxes",
+          "foreground": "--danger-text",
+          "background": "--warn-bg",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--danger-line",
+      "type": "colour",
+      "group": "danger",
+      "description": "Delete buttons: the border.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "dialog",
+        "bad",
+        "mode",
+        "base"
+      ],
+      "derivation": "The danger text when the panels are on the other side of the page; otherwise palette.bad moved until it reaches 3.2:1 on the dialog.",
+      "contrastPairs": []
+    },
+    {
+      "name": "--danger-hover",
+      "type": "colour",
+      "group": "danger",
+      "description": "A Delete button under the pointer.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "dialog",
+        "bad",
+        "warn",
+        "mode",
+        "base"
+      ],
+      "derivation": "The hover colour when the panels are on the other side of the page; otherwise the dialog colour mixed 12% toward palette.bad.",
+      "contrastPairs": [
+        {
+          "label": "Danger buttons, hovered",
+          "foreground": "--danger-text",
+          "background": "--danger-hover",
+          "role": "background",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--input-bg",
+      "type": "colour",
+      "group": "input",
+      "description": "Text boxes, the search field, dropdowns, code snippets and report boxes.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "dialog",
+        "mode",
+        "base"
+      ],
+      "derivation": "The dialog colour mixed 30% toward black (dark page) or white (light page).",
+      "contrastPairs": [
+        {
+          "label": "Text in fields",
+          "foreground": "--input-text",
+          "background": "--input-bg",
+          "role": "background",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--input-text",
+      "type": "colour",
+      "group": "input",
+      "description": "Text typed in those fields.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "text",
+        "dialog",
+        "tray",
+        "mode",
+        "base"
+      ],
+      "derivation": "The text colour, moved until it reaches 4.7:1 on the input background.",
+      "contrastPairs": [
+        {
+          "label": "Text in fields",
+          "foreground": "--input-text",
+          "background": "--input-bg",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--input-line",
+      "type": "colour",
+      "group": "input",
+      "description": "The border of those fields.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "text",
+        "dialog",
+        "tray",
+        "mode",
+        "base"
+      ],
+      "derivation": "The input background mixed 30% toward the input text.",
+      "contrastPairs": []
+    },
+    {
+      "name": "--panel-busy",
+      "type": "colour",
+      "group": "status",
+      "description": "Running-state text on panels (\"Copying...\") and the Building, Sending and Downloading pills. The 8 built-in themes that do not set it use --icon.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "accent",
+        "mode",
+        "base"
+      ],
+      "derivation": "The same colour as --icon.",
+      "contrastPairs": [
+        {
+          "label": "Busy text on panels",
+          "foreground": "--panel-busy",
+          "background": "--panel",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Working tag",
+          "foreground": "--panel-busy",
+          "background": "--panel",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": "busy"
+        }
+      ]
+    },
+    {
+      "name": "--panel-warn",
+      "type": "colour",
+      "group": "status",
+      "description": "The Queued, Incomplete and Some failed pills (the .tag.stalled class).",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "dialog",
+        "warn",
+        "mode",
+        "base"
+      ],
+      "derivation": "palette.warn (default #e0a100), moved until it reaches 4.7:1 on the panel and on the Incomplete pill.",
+      "contrastPairs": [
+        {
+          "label": "Warning text on panels",
+          "foreground": "--panel-warn",
+          "background": "--panel",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Warning marks on outline buttons",
+          "foreground": "--panel-warn",
+          "background": "--ghost-bg",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": null
+        },
+        {
+          "label": "Incomplete tag",
+          "foreground": "--panel-warn",
+          "background": "--panel",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": "stalled"
+        }
+      ]
+    },
+    {
+      "name": "--ok",
+      "type": "colour",
+      "group": "status",
+      "description": "Success text and the green status dot on the page and in dialogs.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "dialog",
+        "good",
+        "mode",
+        "base"
+      ],
+      "derivation": "palette.good, moved until it reaches 4.7:1 on the page and dialogs.",
+      "contrastPairs": [
+        {
+          "label": "OK text on the page",
+          "foreground": "--ok",
+          "background": "--bg",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "OK text in dialogs",
+          "foreground": "--ok",
+          "background": "--dlg-bg",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--err",
+      "type": "colour",
+      "group": "status",
+      "description": "Error text and the red status dot on the page and in dialogs.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "dialog",
+        "bad",
+        "mode",
+        "base"
+      ],
+      "derivation": "palette.bad, moved until it reaches 4.7:1 on the page and dialogs.",
+      "contrastPairs": [
+        {
+          "label": "Error text on the page",
+          "foreground": "--err",
+          "background": "--bg",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Error text in dialogs",
+          "foreground": "--err",
+          "background": "--dlg-bg",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--panel-ok",
+      "type": "colour",
+      "group": "status",
+      "description": "Success text on panels, a finished progress bar, the Downloaded, Built and Sent pills and the small OK chips.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "dialog",
+        "good",
+        "warn",
+        "mode",
+        "base"
+      ],
+      "derivation": "palette.good (default #28a05a), moved until it reaches 4.7:1 on the panel and on the Downloaded pill.",
+      "contrastPairs": [
+        {
+          "label": "Done text on panels",
+          "foreground": "--panel-ok",
+          "background": "--panel",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Done marks on outline buttons",
+          "foreground": "--panel-ok",
+          "background": "--ghost-bg",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": null
+        },
+        {
+          "label": "Done tag",
+          "foreground": "--panel-ok",
+          "background": "--panel",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": "done"
+        }
+      ]
+    },
+    {
+      "name": "--panel-err",
+      "type": "colour",
+      "group": "status",
+      "description": "Error text on panels and the Failed and Stalled pills.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "dialog",
+        "bad",
+        "warn",
+        "mode",
+        "base"
+      ],
+      "derivation": "palette.bad (default #e5484d), moved until it reaches 4.7:1 on the panel and on the Failed pill.",
+      "contrastPairs": [
+        {
+          "label": "Error text on panels",
+          "foreground": "--panel-err",
+          "background": "--panel",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Error marks on outline buttons",
+          "foreground": "--panel-err",
+          "background": "--ghost-bg",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": null
+        },
+        {
+          "label": "Failed tag",
+          "foreground": "--panel-err",
+          "background": "--panel",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": "failed"
+        }
+      ]
+    },
+    {
+      "name": "--tray",
+      "type": "paint",
+      "group": "dialog",
+      "description": "The bar at the bottom while packages are selected.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "tray",
+        "mode",
+        "base"
+      ],
+      "derivation": "palette.tray, else the page colour mixed 22% toward black or white; moved to the page side so the page text reads on it. Glossy bases: a gradient.",
+      "contrastPairs": [
+        {
+          "label": "Text on the bottom bar",
+          "foreground": "--text",
+          "background": "--tray",
+          "role": "background",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Muted text on the bottom bar",
+          "foreground": "--muted",
+          "background": "--tray",
+          "role": "background",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Links on the bottom bar",
+          "foreground": "--link",
+          "background": "--tray",
+          "role": "background",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": null
+        },
+        {
+          "label": "Danger buttons on the bottom bar",
+          "foreground": "--danger-text",
+          "background": "--tray",
+          "role": "background",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--tray-line",
+      "type": "colour",
+      "group": "dialog",
+      "description": "The tray's top edge.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "text",
+        "dialog",
+        "tray",
+        "mode",
+        "base"
+      ],
+      "derivation": "The tray colour mixed 22% toward the text.",
+      "contrastPairs": []
+    },
+    {
+      "name": "--dlg-bg",
+      "type": "colour",
+      "group": "dialog",
+      "description": "The background of dialogs and of the drop-a-file box.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "dialog",
+        "mode",
+        "base"
+      ],
+      "derivation": "palette.dialog (moved to the page side), else the page colour mixed 12% toward black (dark page) or white (light page).",
+      "contrastPairs": [
+        {
+          "label": "Links in dialogs",
+          "foreground": "--link",
+          "background": "--dlg-bg",
+          "role": "background",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "OK text in dialogs",
+          "foreground": "--ok",
+          "background": "--dlg-bg",
+          "role": "background",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Error text in dialogs",
+          "foreground": "--err",
+          "background": "--dlg-bg",
+          "role": "background",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Text in dialogs",
+          "foreground": "--text",
+          "background": "--dlg-bg",
+          "role": "background",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Muted text in dialogs",
+          "foreground": "--muted",
+          "background": "--dlg-bg",
+          "role": "background",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Danger buttons in dialogs",
+          "foreground": "--danger-text",
+          "background": "--dlg-bg",
+          "role": "background",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--backdrop",
+      "type": "colour",
+      "group": "dialog",
+      "description": "What dims the page behind a dialog. Give it some transparency.",
+      "derivedFrom": [
+        "mode"
+      ],
+      "derivation": "rgba(0, 0, 0, 0.6) in a dark theme, rgba(20, 24, 40, 0.4) in a light one.",
+      "contrastPairs": []
+    },
+    {
+      "name": "--warn-bg",
+      "type": "colour",
+      "group": "warning",
+      "description": "Warning boxes, banners and the small labels after a title (GAME, DLC).",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "dialog",
+        "warn",
+        "mode",
+        "base"
+      ],
+      "derivation": "The dialog colour mixed 22% (dark page) or 18% (light page) toward palette.warn.",
+      "contrastPairs": [
+        {
+          "label": "Warning box text",
+          "foreground": "--warn-text",
+          "background": "--warn-bg",
+          "role": "background",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        },
+        {
+          "label": "Danger buttons in warning boxes",
+          "foreground": "--danger-text",
+          "background": "--warn-bg",
+          "role": "background",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": null
+        },
+        {
+          "label": "Outline button text in warning boxes",
+          "foreground": "--ghost-text",
+          "background": "--warn-bg",
+          "role": "background",
+          "min": 4.5,
+          "kind": "extra",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--warn-text",
+      "type": "colour",
+      "group": "warning",
+      "description": "Text in those.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "dialog",
+        "warn",
+        "mode",
+        "base"
+      ],
+      "derivation": "palette.warn (default #e0a100), moved until it reaches 4.7:1 on the warning background.",
+      "contrastPairs": [
+        {
+          "label": "Warning box text",
+          "foreground": "--warn-text",
+          "background": "--warn-bg",
+          "role": "foreground",
+          "min": 4.5,
+          "kind": "required",
+          "tint": null
+        }
+      ]
+    },
+    {
+      "name": "--warn-line",
+      "type": "colour",
+      "group": "warning",
+      "description": "The border of those.",
+      "derivedFrom": [
+        "background",
+        "surface",
+        "dialog",
+        "warn",
+        "mode",
+        "base"
+      ],
+      "derivation": "The warning background mixed 40% toward the warning text.",
+      "contrastPairs": []
+    },
+    {
+      "name": "--radius",
+      "type": "length",
+      "group": "shape",
+      "description": "Corner rounding of buttons, fields and small things. 0 or up to 64px / 4rem / 4em.",
+      "derivedFrom": [
+        "base"
+      ],
+      "derivation": "The base look's own value.",
+      "contrastPairs": []
+    },
+    {
+      "name": "--radius-lg",
+      "type": "length",
+      "group": "shape",
+      "description": "Corner rounding of panels, menus and dialogs.",
+      "derivedFrom": [
+        "base"
+      ],
+      "derivation": "The base look's own value.",
+      "contrastPairs": []
+    },
+    {
+      "name": "--font",
+      "type": "font",
+      "group": "shape",
+      "description": "The typeface for the page. The pixel-font bases (ps1, ps1v2, snes) still set their buttons, title and dialog headings in their own pixel font.",
+      "derivedFrom": [
+        "base"
+      ],
+      "derivation": "The base look's own font stack.",
+      "contrastPairs": []
+    }
+  ]
+}

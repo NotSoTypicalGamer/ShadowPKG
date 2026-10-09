@@ -1,0 +1,12 @@
+{
+  "kit": "C:\\Tools\\sdk-fpkg279-fix12",
+  "python": "C:\\Program Files (x86)\\Python312-32",
+  "temp": "C:\\ShadowPKG-Build\\temp",
+  "staging": "C:\\ShadowPKG-Build\\staging",
+  "server": "http://192.168.1.10:12801",
+  "user": "shadow",
+  "password": "",
+  "libraries": {
+    "games": "R:\\"
+  }
+}

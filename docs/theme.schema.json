@@ -1,0 +1,782 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ShadowPKG theme manifest",
+  "description": "A ShadowPKG theme manifest: the content of <id>.json (a single-file theme) or of theme.json (a folder theme). Unknown top-level keys and unknown palette keys are allowed: the server ignores them with a warning. null for an optional field means the same as leaving it out; write it out instead. What this schema cannot check, and the server does: (1) a key given twice in one object (a JSON parser keeps the last; the server refuses the file) and nesting deeper than 64 levels; (2) anything about the files of a folder theme: that assets/<file> exists, that its bytes are the type its name says, that an SVG has no script or outside link, the 1.5 MiB / 4 MiB / 24 file limits, and duplicate asset names that differ only in capitals; (3) the decoded size of a data: URL (300 KB for a picture, 900 KB for a font), that its base64 is valid (length a multiple of 4) and that the bytes are really that type; (4) the css text beyond its characters: at-rules, nested rules, brace balance, selectors, property names, the allowed function list, what may stand in a value, the string rules, and the 200 rule / 40 declaration limits (the schema only refuses < and control characters, and caps the length at 61440 characters where the server caps 60 KB of bytes, so css with multi-byte characters can pass the schema and fail the server); (5) lengths are counted by the server after it trims the text and collapses runs of white space, and by this schema on the text as written; a 300-character token value or a 40-character name that only fits after trimming can differ; (6) the size of the finished single file (1 MiB, measured on the cleaned, pretty-printed manifest), whether the id is already used, and the 64 theme limit; (7) lone surrogate characters in text, which the server refuses; (8) that css produces at least one rule (a css string of only comments does not count as content for the server; the schema counts any css with a non-space character); (9) which of the two forms a manifest is for: the root of this schema accepts assets/<file> (folder themes), and #/$defs/singleFile refuses it (single files); an asset name that is exactly an extension with no dot (a file called svg) is accepted by the server as a picture and refused here; (10) additionalProperties choices: unknown top-level keys and unknown palette keys are allowed because the server ignores them with a warning; unknown keys in a font entry are allowed because the server ignores them silently; unknown token names are refused because the server refuses them.",
+  "type": "object",
+  "required": [
+    "shadowtheme",
+    "name"
+  ],
+  "properties": {
+    "shadowtheme": {
+      "const": 1,
+      "description": "The format version: the number 1. Required."
+    },
+    "id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-z0-9][a-z0-9-]{0,31}$",
+      "not": {
+        "anyOf": [
+          {
+            "enum": [
+              "ps1",
+              "ps1v2",
+              "midnight",
+              "purple",
+              "nes",
+              "snes",
+              "dreamcast",
+              "wii",
+              "itsmemario",
+              "yoshisisland",
+              "oled",
+              "nathan",
+              "win95",
+              "spookemon"
+            ]
+          },
+          {
+            "type": "string",
+            "pattern": "^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])$"
+          }
+        ]
+      },
+      "description": "Optional in a file: the default is the file name without .json (or the folder name), made into a slug; a manifest sent to the server without one gets a slug of its name. 1 to 32 lower-case letters, digits and dashes, starting with a letter or digit. Not the id of a built-in theme (ps1, ps1v2, midnight, purple, nes, snes, dreamcast, wii, itsmemario, yoshisisland, oled, nathan, win95, spookemon) and not a name Windows reserves for devices (con, prn, aux, nul, com1-com9, lpt1-lpt9)."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40,
+      "pattern": "^[^<>\\u0000-\\u001f\\u007f-\\u009f\\u200b\\u200e\\u200f\\u2028\\u2029\\u202a-\\u202e\\u2060-\\u2069\\ufeff\\ufffd]*$",
+      "allOf": [
+        {
+          "pattern": "\\S"
+        }
+      ],
+      "description": "Required. What the picker shows. 1 to 40 characters, not all white space, no < or > and no control characters."
+    },
+    "author": {
+      "$ref": "#/$defs/text40",
+      "description": "Optional, at most 40 characters, same character rule as name."
+    },
+    "description": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 140,
+      "pattern": "^[^<>\\u0000-\\u001f\\u007f-\\u009f\\u200b\\u200e\\u200f\\u2028\\u2029\\u202a-\\u202e\\u2060-\\u2069\\ufeff\\ufffd]*$",
+      "description": "Optional, at most 140 characters, same character rule as name."
+    },
+    "version": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 16,
+      "pattern": "^[^<>\\u0000-\\u001f\\u007f-\\u009f\\u200b\\u200e\\u200f\\u2028\\u2029\\u202a-\\u202e\\u2060-\\u2069\\ufeff\\ufffd]*$",
+      "description": "Optional, at most 16 characters, same character rule as name. Shown only; nothing compares versions."
+    },
+    "base": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "ps1",
+        "ps1v2",
+        "midnight",
+        "purple",
+        "snes",
+        "dreamcast",
+        "wii",
+        "itsmemario",
+        "oled",
+        "nathan",
+        "win95",
+        null
+      ],
+      "default": "midnight",
+      "description": "Optional, one of the fourteen built-in ids: which built-in look supplies the structure (fonts, bevels, scanlines, glows, shapes). Default midnight."
+    },
+    "mode": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "dark",
+        "light",
+        null
+      ],
+      "description": "Optional. Default: dark when the luminance of palette.background is below 0.4, else light (with no palette.background: light for base wii, dark for every other base). Picks shadow, backdrop and which side of the mid-tones the page colours are moved to."
+    },
+    "palette": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "The colours the theme is derived from. Nothing in it is required: a missing colour comes from the base look's own seeds. background, surface, text and accent are the four seeds; the rest are optional. Keys the format does not know are ignored with a warning. surface2 is accepted but the current page ignores it. Values are text (or null, meaning left out), never alpha colours.",
+      "properties": {
+        "background": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/colourPalette"
+            }
+          ]
+        },
+        "surface": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/colourPalette"
+            }
+          ]
+        },
+        "text": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/colourPalette"
+            }
+          ]
+        },
+        "accent": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/colourPalette"
+            }
+          ]
+        },
+        "surface2": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/colourPalette"
+            }
+          ]
+        },
+        "dialog": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/colourPalette"
+            }
+          ]
+        },
+        "tray": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/colourPalette"
+            }
+          ]
+        },
+        "link": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/colourPalette"
+            }
+          ]
+        },
+        "good": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/colourPalette"
+            }
+          ]
+        },
+        "bad": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/colourPalette"
+            }
+          ]
+        },
+        "warn": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/colourPalette"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "tokens": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "Explicit overrides, applied after the derivation and not corrected for readability (the runtime guard may still nudge text to 4.5:1). Each key must be one of the 51 tokens; an unknown key is an error. Each value must fit the token's type.",
+      "properties": {
+        "--meta": {
+          "$ref": "#/$defs/colour"
+        },
+        "--bg": {
+          "$ref": "#/$defs/colour"
+        },
+        "--text": {
+          "$ref": "#/$defs/colour"
+        },
+        "--muted": {
+          "$ref": "#/$defs/colour"
+        },
+        "--link": {
+          "$ref": "#/$defs/colour"
+        },
+        "--panel-text": {
+          "$ref": "#/$defs/colour"
+        },
+        "--panel-muted": {
+          "$ref": "#/$defs/colour"
+        },
+        "--panel-head": {
+          "$ref": "#/$defs/colour"
+        },
+        "--line": {
+          "$ref": "#/$defs/colour"
+        },
+        "--hover": {
+          "$ref": "#/$defs/colour"
+        },
+        "--sel-text": {
+          "$ref": "#/$defs/colour"
+        },
+        "--sel-muted": {
+          "$ref": "#/$defs/colour"
+        },
+        "--icon": {
+          "$ref": "#/$defs/colour"
+        },
+        "--panel-busy": {
+          "$ref": "#/$defs/colour"
+        },
+        "--panel-warn": {
+          "$ref": "#/$defs/colour"
+        },
+        "--check": {
+          "$ref": "#/$defs/colour"
+        },
+        "--on-accent": {
+          "$ref": "#/$defs/colour"
+        },
+        "--focus": {
+          "$ref": "#/$defs/colour"
+        },
+        "--ghost-text": {
+          "$ref": "#/$defs/colour"
+        },
+        "--ghost-line": {
+          "$ref": "#/$defs/colour"
+        },
+        "--input-bg": {
+          "$ref": "#/$defs/colour"
+        },
+        "--input-text": {
+          "$ref": "#/$defs/colour"
+        },
+        "--input-line": {
+          "$ref": "#/$defs/colour"
+        },
+        "--ok": {
+          "$ref": "#/$defs/colour"
+        },
+        "--err": {
+          "$ref": "#/$defs/colour"
+        },
+        "--panel-ok": {
+          "$ref": "#/$defs/colour"
+        },
+        "--panel-err": {
+          "$ref": "#/$defs/colour"
+        },
+        "--tray-line": {
+          "$ref": "#/$defs/colour"
+        },
+        "--dlg-bg": {
+          "$ref": "#/$defs/colour"
+        },
+        "--warn-bg": {
+          "$ref": "#/$defs/colour"
+        },
+        "--warn-text": {
+          "$ref": "#/$defs/colour"
+        },
+        "--warn-line": {
+          "$ref": "#/$defs/colour"
+        },
+        "--danger-text": {
+          "$ref": "#/$defs/colour"
+        },
+        "--danger-line": {
+          "$ref": "#/$defs/colour"
+        },
+        "--danger-hover": {
+          "$ref": "#/$defs/colour"
+        },
+        "--backdrop": {
+          "$ref": "#/$defs/colour"
+        },
+        "--panel": {
+          "$ref": "#/$defs/paint"
+        },
+        "--sel": {
+          "$ref": "#/$defs/paint"
+        },
+        "--accent": {
+          "$ref": "#/$defs/paint"
+        },
+        "--accent-2": {
+          "$ref": "#/$defs/paint"
+        },
+        "--ghost-bg": {
+          "$ref": "#/$defs/paint"
+        },
+        "--ghost-hover": {
+          "$ref": "#/$defs/paint"
+        },
+        "--tray": {
+          "$ref": "#/$defs/paint"
+        },
+        "--bg-image": {
+          "$ref": "#/$defs/image"
+        },
+        "--panel-shadow": {
+          "$ref": "#/$defs/shadow"
+        },
+        "--radius": {
+          "$ref": "#/$defs/length"
+        },
+        "--radius-lg": {
+          "$ref": "#/$defs/length"
+        },
+        "--pad": {
+          "$ref": "#/$defs/length"
+        },
+        "--row-h": {
+          "$ref": "#/$defs/length"
+        },
+        "--gap": {
+          "$ref": "#/$defs/length"
+        },
+        "--font": {
+          "$ref": "#/$defs/font"
+        }
+      },
+      "additionalProperties": false
+    },
+    "fonts": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "maxItems": 4,
+      "description": "Up to 4 fonts, each declared here and then used by name in --font or in css.",
+      "items": {
+        "type": "object",
+        "required": [
+          "family",
+          "src"
+        ],
+        "properties": {
+          "family": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9 _.-]{0,39}$",
+            "not": {
+              "pattern": "^(?:[pP][iI][xX][eE][lL][cC][hH][rR][oO][mM][eE]|[sS][eE][rR][iI][fF]|[sS][aA][nN][sS]-[sS][eE][rR][iI][fF]|[mM][oO][nN][oO][sS][pP][aA][cC][eE]|[cC][uU][rR][sS][iI][vV][eE]|[fF][aA][nN][tT][aA][sS][yY]|[sS][yY][sS][tT][eE][mM]-[uU][iI]|[iI][nN][hH][eE][rR][iI][tT]|[iI][nN][iI][tT][iI][aA][lL]|[uU][nN][sS][eE][tT]|[dD][eE][fF][aA][uU][lL][tT])$"
+            },
+            "description": "The font-family name: a letter, then up to 39 letters, digits, spaces, . - and _. Not PixelChrome, a generic family name, or inherit, initial, unset, default (in any capitals)."
+          },
+          "src": {
+            "$ref": "#/$defs/fontSrc"
+          },
+          "weight": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^(?:[1-9]00|normal|bold)$"
+              },
+              {
+                "type": "integer",
+                "enum": [
+                  100,
+                  200,
+                  300,
+                  400,
+                  500,
+                  600,
+                  700,
+                  800,
+                  900
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "100 to 900 in hundreds (as text or a number), normal or bold. Default 400."
+          }
+        },
+        "additionalProperties": true,
+        "description": "A font entry. Keys other than family, src and weight are ignored by the server without a warning."
+      }
+    },
+    "css": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 61440,
+      "pattern": "^[^<\\u0000-\\u0008\\u000b\\u000e-\\u001f\\u007f-\\u009f\\u200b\\u200e\\u200f\\u2028\\u2029\\u202a-\\u202e\\u2060-\\u2069\\ufeff\\ufffd]*$",
+      "description": "Extra plain rules, scoped by the server to this theme (every selector is prefixed with html[data-custom=\"<id>\"]). At most 60 KB (in bytes), 200 rules, 40 declarations a rule; no at-rules, no nesting, no <, only the allowed functions; url() only of a data: picture or assets/<file>. A folder theme's theme.css is added after it. The schema checks only the characters."
+    },
+    "logo": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^assets/[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+      "description": "Optional, folder themes only. One assets/<file> picture shown in the header in place of the built-in glyph; the wordmark text is hidden. The server checks the file exists and, for SVG, that it is plain shapes."
+    },
+    "icons": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "Optional, folder themes only. A map of icon kind to assets/<file> picture overriding the built-in row icon for that kind. Kinds: file, document, text, image, video, audio, archive, disk, code, package, folder. Unknown kinds are ignored with a warning.",
+      "properties": {
+        "file": {
+          "$ref": "#/$defs/iconAsset"
+        },
+        "document": {
+          "$ref": "#/$defs/iconAsset"
+        },
+        "text": {
+          "$ref": "#/$defs/iconAsset"
+        },
+        "image": {
+          "$ref": "#/$defs/iconAsset"
+        },
+        "video": {
+          "$ref": "#/$defs/iconAsset"
+        },
+        "audio": {
+          "$ref": "#/$defs/iconAsset"
+        },
+        "archive": {
+          "$ref": "#/$defs/iconAsset"
+        },
+        "disk": {
+          "$ref": "#/$defs/iconAsset"
+        },
+        "code": {
+          "$ref": "#/$defs/iconAsset"
+        },
+        "package": {
+          "$ref": "#/$defs/iconAsset"
+        },
+        "folder": {
+          "$ref": "#/$defs/iconAsset"
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true,
+  "anyOf": [
+    {
+      "required": [
+        "palette"
+      ],
+      "properties": {
+        "palette": {
+          "type": "object",
+          "anyOf": [
+            {
+              "required": [
+                "background"
+              ],
+              "properties": {
+                "background": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "required": [
+                "surface"
+              ],
+              "properties": {
+                "surface": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "required": [
+                "text"
+              ],
+              "properties": {
+                "text": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "required": [
+                "accent"
+              ],
+              "properties": {
+                "accent": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "required": [
+                "surface2"
+              ],
+              "properties": {
+                "surface2": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "required": [
+                "dialog"
+              ],
+              "properties": {
+                "dialog": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "required": [
+                "tray"
+              ],
+              "properties": {
+                "tray": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "required": [
+                "link"
+              ],
+              "properties": {
+                "link": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "required": [
+                "good"
+              ],
+              "properties": {
+                "good": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "required": [
+                "bad"
+              ],
+              "properties": {
+                "bad": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "required": [
+                "warn"
+              ],
+              "properties": {
+                "warn": {
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "required": [
+        "tokens"
+      ],
+      "properties": {
+        "tokens": {
+          "type": "object",
+          "minProperties": 1
+        }
+      }
+    },
+    {
+      "required": [
+        "css"
+      ],
+      "properties": {
+        "css": {
+          "type": "string",
+          "pattern": "\\S"
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "colourPalette": {
+      "type": "string",
+      "maxLength": 300,
+      "pattern": "^[\\t\\n\\r\\f ]*(?:(?:#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})|[rR][gG][bB](?:[aA])?\\([\\t\\n\\r\\f ]*(?:(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)|(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]+(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)){2})[\\t\\n\\r\\f ]*\\)|[hH][sS][lL](?:[aA])?\\([\\t\\n\\r\\f ]*(?:-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?|-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?)[\\t\\n\\r\\f ]*\\)))[\\t\\n\\r\\f ]*$",
+      "description": "A palette colour: #rgb, #rrggbb, rgb(), rgba(), hsl() or hsla() with three plain numbers (comma or space form; % where CSS allows). No alpha part, no transparent, no names, no var(). The server stores it as lower-case #rrggbb."
+    },
+    "colour": {
+      "type": "string",
+      "maxLength": 300,
+      "pattern": "^[\\t\\n\\r\\f ]*(?:(?:#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|[tT][rR][aA][nN][sS][pP][aA][rR][eE][nN][tT]|[rR][gG][bB](?:[aA])?\\([\\t\\n\\r\\f ]*(?:(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]+(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)){2}(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\)|[hH][sS][lL](?:[aA])?\\([\\t\\n\\r\\f ]*(?:-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\)))[\\t\\n\\r\\f ]*$",
+      "description": "A colour token value: #rgb #rgba #rrggbb #rrggbbaa, rgb()/rgba()/hsl()/hsla() with plain numbers (comma form, or space form with an optional / alpha; % where CSS allows), or transparent. No colour names, var() or currentColor."
+    },
+    "paint": {
+      "type": "string",
+      "maxLength": 300,
+      "pattern": "^[\\t\\n\\r\\f ]*(?:(?:#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|[tT][rR][aA][nN][sS][pP][aA][rR][eE][nN][tT]|[rR][gG][bB](?:[aA])?\\([\\t\\n\\r\\f ]*(?:(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]+(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)){2}(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\)|[hH][sS][lL](?:[aA])?\\([\\t\\n\\r\\f ]*(?:-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\))|(?:[lL][iI][nN][eE][aA][rR]-[gG][rR][aA][dD][iI][eE][nN][tT]\\([\\t\\n\\r\\f ]*(?:(?:-?(?:\\d{1,4}(?:\\.\\d{1,4})?|\\.\\d{1,4})[dD][eE][gG]|[tT][oO][\\t\\n\\r\\f ]+(?:(?:[tT][oO][pP]|[bB][oO][tT][tT][oO][mM])[\\t\\n\\r\\f ]+(?:[lL][eE][fF][tT]|[rR][iI][gG][hH][tT])|(?:[lL][eE][fF][tT]|[rR][iI][gG][hH][tT])[\\t\\n\\r\\f ]+(?:[tT][oO][pP]|[bB][oO][tT][tT][oO][mM])|[tT][oO][pP]|[bB][oO][tT][tT][oO][mM]|[lL][eE][fF][tT]|[rR][iI][gG][hH][tT]))[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*)?(?:#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|[tT][rR][aA][nN][sS][pP][aA][rR][eE][nN][tT]|[rR][gG][bB](?:[aA])?\\([\\t\\n\\r\\f ]*(?:(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]+(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)){2}(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\)|[hH][sS][lL](?:[aA])?\\([\\t\\n\\r\\f ]*(?:-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\))(?:[\\t\\n\\r\\f ]+(?:-?(?:\\d{1,6}(?:\\.\\d{1,4})?|\\.\\d{1,4})(?:[pP][xX]|[rR][eE][mM]|[eE][mM]|%)|-?(?:0{1,6}(?:\\.0{1,4})?|\\.0{1,4})))?(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|[tT][rR][aA][nN][sS][pP][aA][rR][eE][nN][tT]|[rR][gG][bB](?:[aA])?\\([\\t\\n\\r\\f ]*(?:(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]+(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)){2}(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\)|[hH][sS][lL](?:[aA])?\\([\\t\\n\\r\\f ]*(?:-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\))(?:[\\t\\n\\r\\f ]+(?:-?(?:\\d{1,6}(?:\\.\\d{1,4})?|\\.\\d{1,4})(?:[pP][xX]|[rR][eE][mM]|[eE][mM]|%)|-?(?:0{1,6}(?:\\.0{1,4})?|\\.0{1,4})))?){1,5}[\\t\\n\\r\\f ]*\\)|[rR][aA][dD][iI][aA][lL]-[gG][rR][aA][dD][iI][eE][nN][tT]\\([\\t\\n\\r\\f ]*(?:(?:(?:[cC][iI][rR][cC][lL][eE]|[eE][lL][lL][iI][pP][sS][eE])(?:[\\t\\n\\r\\f ]+[aA][tT][\\t\\n\\r\\f ]+(?:[lL][eE][fF][tT]|[rR][iI][gG][hH][tT]|[tT][oO][pP]|[bB][oO][tT][tT][oO][mM]|[cC][eE][nN][tT][eE][rR]|-?(?:\\d{1,4}(?:\\.\\d{1,4})?|\\.\\d{1,4})(?:[rR][eE][mM]|[eE][mM]|[pP][xX]|%)|-?(?:0{1,4}(?:\\.0{1,4})?|\\.0{1,4}))(?:[\\t\\n\\r\\f ]+(?:[lL][eE][fF][tT]|[rR][iI][gG][hH][tT]|[tT][oO][pP]|[bB][oO][tT][tT][oO][mM]|[cC][eE][nN][tT][eE][rR]|-?(?:\\d{1,4}(?:\\.\\d{1,4})?|\\.\\d{1,4})(?:[rR][eE][mM]|[eE][mM]|[pP][xX]|%)|-?(?:0{1,4}(?:\\.0{1,4})?|\\.0{1,4})))?)?|[aA][tT][\\t\\n\\r\\f ]+(?:[lL][eE][fF][tT]|[rR][iI][gG][hH][tT]|[tT][oO][pP]|[bB][oO][tT][tT][oO][mM]|[cC][eE][nN][tT][eE][rR]|-?(?:\\d{1,4}(?:\\.\\d{1,4})?|\\.\\d{1,4})(?:[rR][eE][mM]|[eE][mM]|[pP][xX]|%)|-?(?:0{1,4}(?:\\.0{1,4})?|\\.0{1,4}))(?:[\\t\\n\\r\\f ]+(?:[lL][eE][fF][tT]|[rR][iI][gG][hH][tT]|[tT][oO][pP]|[bB][oO][tT][tT][oO][mM]|[cC][eE][nN][tT][eE][rR]|-?(?:\\d{1,4}(?:\\.\\d{1,4})?|\\.\\d{1,4})(?:[rR][eE][mM]|[eE][mM]|[pP][xX]|%)|-?(?:0{1,4}(?:\\.0{1,4})?|\\.0{1,4})))?)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*)?(?:#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|[tT][rR][aA][nN][sS][pP][aA][rR][eE][nN][tT]|[rR][gG][bB](?:[aA])?\\([\\t\\n\\r\\f ]*(?:(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]+(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)){2}(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\)|[hH][sS][lL](?:[aA])?\\([\\t\\n\\r\\f ]*(?:-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\))(?:[\\t\\n\\r\\f ]+(?:-?(?:\\d{1,6}(?:\\.\\d{1,4})?|\\.\\d{1,4})(?:[pP][xX]|[rR][eE][mM]|[eE][mM]|%)|-?(?:0{1,6}(?:\\.0{1,4})?|\\.0{1,4})))?(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|[tT][rR][aA][nN][sS][pP][aA][rR][eE][nN][tT]|[rR][gG][bB](?:[aA])?\\([\\t\\n\\r\\f ]*(?:(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]+(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)){2}(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\)|[hH][sS][lL](?:[aA])?\\([\\t\\n\\r\\f ]*(?:-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\))(?:[\\t\\n\\r\\f ]+(?:-?(?:\\d{1,6}(?:\\.\\d{1,4})?|\\.\\d{1,4})(?:[pP][xX]|[rR][eE][mM]|[eE][mM]|%)|-?(?:0{1,6}(?:\\.0{1,4})?|\\.0{1,4})))?){1,5}[\\t\\n\\r\\f ]*\\)))[\\t\\n\\r\\f ]*$",
+      "description": "A colour or a gradient: linear-gradient( [Ndeg | to <side> [<side>],] 2 to 6 stops ) or radial-gradient( [circle|ellipse [at <pos> [<pos>]] | at <pos> [<pos>],] 2 to 6 stops ). A stop is a colour with an optional length or percentage."
+    },
+    "image": {
+      "type": "string",
+      "maxLength": 420000,
+      "pattern": "^[\\t\\n\\r\\f ]*(?:[nN][oO][nN][eE]|(?:[uU][rR][lL]\\([\\t\\n\\r\\f ]*(?:\"(?:[dD][aA][tT][aA]:[iI][mM][aA][gG][eE]/(?:[pP][nN][gG]|[jJ][pP][eE][gG]|[wW][eE][bB][pP]|[gG][iI][fF]|[sS][vV][gG]\\+[xX][mM][lL]);[bB][aA][sS][eE]64,[A-Za-z0-9+/]+={0,2}|assets/[A-Za-z0-9][A-Za-z0-9._-]{0,63}(?<=\\.(?:[pP][nN][gG]|[jJ][pP][gG]|[jJ][pP][eE][gG]|[wW][eE][bB][pP]|[gG][iI][fF]|[sS][vV][gG])))\"|'(?:[dD][aA][tT][aA]:[iI][mM][aA][gG][eE]/(?:[pP][nN][gG]|[jJ][pP][eE][gG]|[wW][eE][bB][pP]|[gG][iI][fF]|[sS][vV][gG]\\+[xX][mM][lL]);[bB][aA][sS][eE]64,[A-Za-z0-9+/]+={0,2}|assets/[A-Za-z0-9][A-Za-z0-9._-]{0,63}(?<=\\.(?:[pP][nN][gG]|[jJ][pP][gG]|[jJ][pP][eE][gG]|[wW][eE][bB][pP]|[gG][iI][fF]|[sS][vV][gG])))'|(?:[dD][aA][tT][aA]:[iI][mM][aA][gG][eE]/(?:[pP][nN][gG]|[jJ][pP][eE][gG]|[wW][eE][bB][pP]|[gG][iI][fF]|[sS][vV][gG]\\+[xX][mM][lL]);[bB][aA][sS][eE]64,[A-Za-z0-9+/]+={0,2}|assets/[A-Za-z0-9][A-Za-z0-9._-]{0,63}(?<=\\.(?:[pP][nN][gG]|[jJ][pP][gG]|[jJ][pP][eE][gG]|[wW][eE][bB][pP]|[gG][iI][fF]|[sS][vV][gG]))))[\\t\\n\\r\\f ]*\\)|(?:[lL][iI][nN][eE][aA][rR]-[gG][rR][aA][dD][iI][eE][nN][tT]\\([\\t\\n\\r\\f ]*(?:(?:-?(?:\\d{1,4}(?:\\.\\d{1,4})?|\\.\\d{1,4})[dD][eE][gG]|[tT][oO][\\t\\n\\r\\f ]+(?:(?:[tT][oO][pP]|[bB][oO][tT][tT][oO][mM])[\\t\\n\\r\\f ]+(?:[lL][eE][fF][tT]|[rR][iI][gG][hH][tT])|(?:[lL][eE][fF][tT]|[rR][iI][gG][hH][tT])[\\t\\n\\r\\f ]+(?:[tT][oO][pP]|[bB][oO][tT][tT][oO][mM])|[tT][oO][pP]|[bB][oO][tT][tT][oO][mM]|[lL][eE][fF][tT]|[rR][iI][gG][hH][tT]))[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*)?(?:#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|[tT][rR][aA][nN][sS][pP][aA][rR][eE][nN][tT]|[rR][gG][bB](?:[aA])?\\([\\t\\n\\r\\f ]*(?:(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]+(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)){2}(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\)|[hH][sS][lL](?:[aA])?\\([\\t\\n\\r\\f ]*(?:-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\))(?:[\\t\\n\\r\\f ]+(?:-?(?:\\d{1,6}(?:\\.\\d{1,4})?|\\.\\d{1,4})(?:[pP][xX]|[rR][eE][mM]|[eE][mM]|%)|-?(?:0{1,6}(?:\\.0{1,4})?|\\.0{1,4})))?(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|[tT][rR][aA][nN][sS][pP][aA][rR][eE][nN][tT]|[rR][gG][bB](?:[aA])?\\([\\t\\n\\r\\f ]*(?:(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]+(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)){2}(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\)|[hH][sS][lL](?:[aA])?\\([\\t\\n\\r\\f ]*(?:-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\))(?:[\\t\\n\\r\\f ]+(?:-?(?:\\d{1,6}(?:\\.\\d{1,4})?|\\.\\d{1,4})(?:[pP][xX]|[rR][eE][mM]|[eE][mM]|%)|-?(?:0{1,6}(?:\\.0{1,4})?|\\.0{1,4})))?){1,5}[\\t\\n\\r\\f ]*\\)|[rR][aA][dD][iI][aA][lL]-[gG][rR][aA][dD][iI][eE][nN][tT]\\([\\t\\n\\r\\f ]*(?:(?:(?:[cC][iI][rR][cC][lL][eE]|[eE][lL][lL][iI][pP][sS][eE])(?:[\\t\\n\\r\\f ]+[aA][tT][\\t\\n\\r\\f ]+(?:[lL][eE][fF][tT]|[rR][iI][gG][hH][tT]|[tT][oO][pP]|[bB][oO][tT][tT][oO][mM]|[cC][eE][nN][tT][eE][rR]|-?(?:\\d{1,4}(?:\\.\\d{1,4})?|\\.\\d{1,4})(?:[rR][eE][mM]|[eE][mM]|[pP][xX]|%)|-?(?:0{1,4}(?:\\.0{1,4})?|\\.0{1,4}))(?:[\\t\\n\\r\\f ]+(?:[lL][eE][fF][tT]|[rR][iI][gG][hH][tT]|[tT][oO][pP]|[bB][oO][tT][tT][oO][mM]|[cC][eE][nN][tT][eE][rR]|-?(?:\\d{1,4}(?:\\.\\d{1,4})?|\\.\\d{1,4})(?:[rR][eE][mM]|[eE][mM]|[pP][xX]|%)|-?(?:0{1,4}(?:\\.0{1,4})?|\\.0{1,4})))?)?|[aA][tT][\\t\\n\\r\\f ]+(?:[lL][eE][fF][tT]|[rR][iI][gG][hH][tT]|[tT][oO][pP]|[bB][oO][tT][tT][oO][mM]|[cC][eE][nN][tT][eE][rR]|-?(?:\\d{1,4}(?:\\.\\d{1,4})?|\\.\\d{1,4})(?:[rR][eE][mM]|[eE][mM]|[pP][xX]|%)|-?(?:0{1,4}(?:\\.0{1,4})?|\\.0{1,4}))(?:[\\t\\n\\r\\f ]+(?:[lL][eE][fF][tT]|[rR][iI][gG][hH][tT]|[tT][oO][pP]|[bB][oO][tT][tT][oO][mM]|[cC][eE][nN][tT][eE][rR]|-?(?:\\d{1,4}(?:\\.\\d{1,4})?|\\.\\d{1,4})(?:[rR][eE][mM]|[eE][mM]|[pP][xX]|%)|-?(?:0{1,4}(?:\\.0{1,4})?|\\.0{1,4})))?)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*)?(?:#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|[tT][rR][aA][nN][sS][pP][aA][rR][eE][nN][tT]|[rR][gG][bB](?:[aA])?\\([\\t\\n\\r\\f ]*(?:(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]+(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)){2}(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\)|[hH][sS][lL](?:[aA])?\\([\\t\\n\\r\\f ]*(?:-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\))(?:[\\t\\n\\r\\f ]+(?:-?(?:\\d{1,6}(?:\\.\\d{1,4})?|\\.\\d{1,4})(?:[pP][xX]|[rR][eE][mM]|[eE][mM]|%)|-?(?:0{1,6}(?:\\.0{1,4})?|\\.0{1,4})))?(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|[tT][rR][aA][nN][sS][pP][aA][rR][eE][nN][tT]|[rR][gG][bB](?:[aA])?\\([\\t\\n\\r\\f ]*(?:(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]+(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)){2}(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\)|[hH][sS][lL](?:[aA])?\\([\\t\\n\\r\\f ]*(?:-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\))(?:[\\t\\n\\r\\f ]+(?:-?(?:\\d{1,6}(?:\\.\\d{1,4})?|\\.\\d{1,4})(?:[pP][xX]|[rR][eE][mM]|[eE][mM]|%)|-?(?:0{1,6}(?:\\.0{1,4})?|\\.0{1,4})))?){1,5}[\\t\\n\\r\\f ]*\\)))(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:[uU][rR][lL]\\([\\t\\n\\r\\f ]*(?:\"(?:[dD][aA][tT][aA]:[iI][mM][aA][gG][eE]/(?:[pP][nN][gG]|[jJ][pP][eE][gG]|[wW][eE][bB][pP]|[gG][iI][fF]|[sS][vV][gG]\\+[xX][mM][lL]);[bB][aA][sS][eE]64,[A-Za-z0-9+/]+={0,2}|assets/[A-Za-z0-9][A-Za-z0-9._-]{0,63}(?<=\\.(?:[pP][nN][gG]|[jJ][pP][gG]|[jJ][pP][eE][gG]|[wW][eE][bB][pP]|[gG][iI][fF]|[sS][vV][gG])))\"|'(?:[dD][aA][tT][aA]:[iI][mM][aA][gG][eE]/(?:[pP][nN][gG]|[jJ][pP][eE][gG]|[wW][eE][bB][pP]|[gG][iI][fF]|[sS][vV][gG]\\+[xX][mM][lL]);[bB][aA][sS][eE]64,[A-Za-z0-9+/]+={0,2}|assets/[A-Za-z0-9][A-Za-z0-9._-]{0,63}(?<=\\.(?:[pP][nN][gG]|[jJ][pP][gG]|[jJ][pP][eE][gG]|[wW][eE][bB][pP]|[gG][iI][fF]|[sS][vV][gG])))'|(?:[dD][aA][tT][aA]:[iI][mM][aA][gG][eE]/(?:[pP][nN][gG]|[jJ][pP][eE][gG]|[wW][eE][bB][pP]|[gG][iI][fF]|[sS][vV][gG]\\+[xX][mM][lL]);[bB][aA][sS][eE]64,[A-Za-z0-9+/]+={0,2}|assets/[A-Za-z0-9][A-Za-z0-9._-]{0,63}(?<=\\.(?:[pP][nN][gG]|[jJ][pP][gG]|[jJ][pP][eE][gG]|[wW][eE][bB][pP]|[gG][iI][fF]|[sS][vV][gG]))))[\\t\\n\\r\\f ]*\\)|(?:[lL][iI][nN][eE][aA][rR]-[gG][rR][aA][dD][iI][eE][nN][tT]\\([\\t\\n\\r\\f ]*(?:(?:-?(?:\\d{1,4}(?:\\.\\d{1,4})?|\\.\\d{1,4})[dD][eE][gG]|[tT][oO][\\t\\n\\r\\f ]+(?:(?:[tT][oO][pP]|[bB][oO][tT][tT][oO][mM])[\\t\\n\\r\\f ]+(?:[lL][eE][fF][tT]|[rR][iI][gG][hH][tT])|(?:[lL][eE][fF][tT]|[rR][iI][gG][hH][tT])[\\t\\n\\r\\f ]+(?:[tT][oO][pP]|[bB][oO][tT][tT][oO][mM])|[tT][oO][pP]|[bB][oO][tT][tT][oO][mM]|[lL][eE][fF][tT]|[rR][iI][gG][hH][tT]))[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*)?(?:#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|[tT][rR][aA][nN][sS][pP][aA][rR][eE][nN][tT]|[rR][gG][bB](?:[aA])?\\([\\t\\n\\r\\f ]*(?:(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]+(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)){2}(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\)|[hH][sS][lL](?:[aA])?\\([\\t\\n\\r\\f ]*(?:-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\))(?:[\\t\\n\\r\\f ]+(?:-?(?:\\d{1,6}(?:\\.\\d{1,4})?|\\.\\d{1,4})(?:[pP][xX]|[rR][eE][mM]|[eE][mM]|%)|-?(?:0{1,6}(?:\\.0{1,4})?|\\.0{1,4})))?(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|[tT][rR][aA][nN][sS][pP][aA][rR][eE][nN][tT]|[rR][gG][bB](?:[aA])?\\([\\t\\n\\r\\f ]*(?:(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]+(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)){2}(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\)|[hH][sS][lL](?:[aA])?\\([\\t\\n\\r\\f ]*(?:-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\))(?:[\\t\\n\\r\\f ]+(?:-?(?:\\d{1,6}(?:\\.\\d{1,4})?|\\.\\d{1,4})(?:[pP][xX]|[rR][eE][mM]|[eE][mM]|%)|-?(?:0{1,6}(?:\\.0{1,4})?|\\.0{1,4})))?){1,5}[\\t\\n\\r\\f ]*\\)|[rR][aA][dD][iI][aA][lL]-[gG][rR][aA][dD][iI][eE][nN][tT]\\([\\t\\n\\r\\f ]*(?:(?:(?:[cC][iI][rR][cC][lL][eE]|[eE][lL][lL][iI][pP][sS][eE])(?:[\\t\\n\\r\\f ]+[aA][tT][\\t\\n\\r\\f ]+(?:[lL][eE][fF][tT]|[rR][iI][gG][hH][tT]|[tT][oO][pP]|[bB][oO][tT][tT][oO][mM]|[cC][eE][nN][tT][eE][rR]|-?(?:\\d{1,4}(?:\\.\\d{1,4})?|\\.\\d{1,4})(?:[rR][eE][mM]|[eE][mM]|[pP][xX]|%)|-?(?:0{1,4}(?:\\.0{1,4})?|\\.0{1,4}))(?:[\\t\\n\\r\\f ]+(?:[lL][eE][fF][tT]|[rR][iI][gG][hH][tT]|[tT][oO][pP]|[bB][oO][tT][tT][oO][mM]|[cC][eE][nN][tT][eE][rR]|-?(?:\\d{1,4}(?:\\.\\d{1,4})?|\\.\\d{1,4})(?:[rR][eE][mM]|[eE][mM]|[pP][xX]|%)|-?(?:0{1,4}(?:\\.0{1,4})?|\\.0{1,4})))?)?|[aA][tT][\\t\\n\\r\\f ]+(?:[lL][eE][fF][tT]|[rR][iI][gG][hH][tT]|[tT][oO][pP]|[bB][oO][tT][tT][oO][mM]|[cC][eE][nN][tT][eE][rR]|-?(?:\\d{1,4}(?:\\.\\d{1,4})?|\\.\\d{1,4})(?:[rR][eE][mM]|[eE][mM]|[pP][xX]|%)|-?(?:0{1,4}(?:\\.0{1,4})?|\\.0{1,4}))(?:[\\t\\n\\r\\f ]+(?:[lL][eE][fF][tT]|[rR][iI][gG][hH][tT]|[tT][oO][pP]|[bB][oO][tT][tT][oO][mM]|[cC][eE][nN][tT][eE][rR]|-?(?:\\d{1,4}(?:\\.\\d{1,4})?|\\.\\d{1,4})(?:[rR][eE][mM]|[eE][mM]|[pP][xX]|%)|-?(?:0{1,4}(?:\\.0{1,4})?|\\.0{1,4})))?)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*)?(?:#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|[tT][rR][aA][nN][sS][pP][aA][rR][eE][nN][tT]|[rR][gG][bB](?:[aA])?\\([\\t\\n\\r\\f ]*(?:(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]+(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)){2}(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\)|[hH][sS][lL](?:[aA])?\\([\\t\\n\\r\\f ]*(?:-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\))(?:[\\t\\n\\r\\f ]+(?:-?(?:\\d{1,6}(?:\\.\\d{1,4})?|\\.\\d{1,4})(?:[pP][xX]|[rR][eE][mM]|[eE][mM]|%)|-?(?:0{1,6}(?:\\.0{1,4})?|\\.0{1,4})))?(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|[tT][rR][aA][nN][sS][pP][aA][rR][eE][nN][tT]|[rR][gG][bB](?:[aA])?\\([\\t\\n\\r\\f ]*(?:(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]+(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)){2}(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\)|[hH][sS][lL](?:[aA])?\\([\\t\\n\\r\\f ]*(?:-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\))(?:[\\t\\n\\r\\f ]+(?:-?(?:\\d{1,6}(?:\\.\\d{1,4})?|\\.\\d{1,4})(?:[pP][xX]|[rR][eE][mM]|[eE][mM]|%)|-?(?:0{1,6}(?:\\.0{1,4})?|\\.0{1,4})))?){1,5}[\\t\\n\\r\\f ]*\\)))){0,2})[\\t\\n\\r\\f ]*$",
+      "if": {
+        "not": {
+          "pattern": "[dD][aA][tT][aA]:"
+        }
+      },
+      "then": {
+        "maxLength": 300
+      },
+      "description": "none, or 1 to 3 comma-separated layers, each a gradient or url() of a data:image/(png|jpeg|webp|gif|svg+xml);base64 picture or of assets/<file> (folder themes only). 300 characters, not counting embedded picture data (which has its own 300 KB limit that a pattern cannot check)."
+    },
+    "shadow": {
+      "type": "string",
+      "maxLength": 300,
+      "pattern": "^[\\t\\n\\r\\f ]*(?:[nN][oO][nN][eE]|(?:[iI][nN][sS][eE][tT][\\t\\n\\r\\f ]+)?(?:-?(?:\\d{1,6}(?:\\.\\d{1,4})?|\\.\\d{1,4})px|-?(?:0{1,6}(?:\\.0{1,4})?|\\.0{1,4}))[\\t\\n\\r\\f ]+(?:-?(?:\\d{1,6}(?:\\.\\d{1,4})?|\\.\\d{1,4})px|-?(?:0{1,6}(?:\\.0{1,4})?|\\.0{1,4}))(?:[\\t\\n\\r\\f ]+(?:(?:\\d{1,6}(?:\\.\\d{1,4})?|\\.\\d{1,4})px|-?(?:0{1,6}(?:\\.0{1,4})?|\\.0{1,4})(?:px)?)(?:[\\t\\n\\r\\f ]+(?:-?(?:\\d{1,6}(?:\\.\\d{1,4})?|\\.\\d{1,4})px|-?(?:0{1,6}(?:\\.0{1,4})?|\\.0{1,4})))?)?[\\t\\n\\r\\f ]+(?:#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|[tT][rR][aA][nN][sS][pP][aA][rR][eE][nN][tT]|[rR][gG][bB](?:[aA])?\\([\\t\\n\\r\\f ]*(?:(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]+(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)){2}(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\)|[hH][sS][lL](?:[aA])?\\([\\t\\n\\r\\f ]*(?:-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\))(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:[iI][nN][sS][eE][tT][\\t\\n\\r\\f ]+)?(?:-?(?:\\d{1,6}(?:\\.\\d{1,4})?|\\.\\d{1,4})px|-?(?:0{1,6}(?:\\.0{1,4})?|\\.0{1,4}))[\\t\\n\\r\\f ]+(?:-?(?:\\d{1,6}(?:\\.\\d{1,4})?|\\.\\d{1,4})px|-?(?:0{1,6}(?:\\.0{1,4})?|\\.0{1,4}))(?:[\\t\\n\\r\\f ]+(?:(?:\\d{1,6}(?:\\.\\d{1,4})?|\\.\\d{1,4})px|-?(?:0{1,6}(?:\\.0{1,4})?|\\.0{1,4})(?:px)?)(?:[\\t\\n\\r\\f ]+(?:-?(?:\\d{1,6}(?:\\.\\d{1,4})?|\\.\\d{1,4})px|-?(?:0{1,6}(?:\\.0{1,4})?|\\.0{1,4})))?)?[\\t\\n\\r\\f ]+(?:#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|[tT][rR][aA][nN][sS][pP][aA][rR][eE][nN][tT]|[rR][gG][bB](?:[aA])?\\([\\t\\n\\r\\f ]*(?:(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)(?:[\\t\\n\\r\\f ]+(?:(?:0*(?:25[0-4]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\\.\\d{1,8})?|0*255(?:\\.0{1,8})?|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%)){2}(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\)|[hH][sS][lL](?:[aA])?\\([\\t\\n\\r\\f ]*(?:-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?|-?(?:\\d{1,7}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:[dD][eE][gG])?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?[\\t\\n\\r\\f ]+(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%?(?:[\\t\\n\\r\\f ]*/[\\t\\n\\r\\f ]*(?:(?:0*1(?:\\.0{1,8})?|0*(?:0(?:\\.\\d{1,8})?|\\.\\d{1,8})|-0+(?:\\.0{1,8})?|-\\.0{1,8})|(?:0*(?:100(?:\\.0{1,8})?|[1-9]?\\d(?:\\.\\d{1,8})?)|\\.\\d{1,8}|-0+(?:\\.0{1,8})?|-\\.0{1,8})%))?)[\\t\\n\\r\\f ]*\\))){0,3})[\\t\\n\\r\\f ]*$",
+      "description": "none, or 1 to 4 comma-separated shadows: [inset] x y [blur [spread]] colour, lengths in px (0 needs no unit), the blur not negative."
+    },
+    "length": {
+      "type": "string",
+      "maxLength": 300,
+      "pattern": "^[\\t\\n\\r\\f ]*(?:(?:(?:0*(?:6[0-3]|[1-5]?\\d)(?:\\.\\d{1,4})?|0*64(?:\\.0{1,4})?|\\.\\d{1,4})px|(?:0*[0-3](?:\\.\\d{1,4})?|0*4(?:\\.0{1,4})?|\\.\\d{1,4})(?:rem|em)|-?(?:0{1,6}(?:\\.0{1,4})?|\\.0{1,4})(?:px|rem|em)?))[\\t\\n\\r\\f ]*$",
+      "description": "0, or a number with px (at most 64), rem or em (at most 4). Lower-case units."
+    },
+    "font": {
+      "type": "string",
+      "maxLength": 200,
+      "pattern": "^[\\t\\n\\r\\f ]*(?:(?:\"[-A-Za-z0-9 _.\t\n\r\f]{1,64}\"|'[-A-Za-z0-9 _.\t\n\r\f]{1,64}'|[A-Za-z][-A-Za-z0-9 _\t\n\r\f]*)(?:[\\t\\n\\r\\f ]*,[\\t\\n\\r\\f ]*(?:\"[-A-Za-z0-9 _.\t\n\r\f]{1,64}\"|'[-A-Za-z0-9 _.\t\n\r\f]{1,64}'|[A-Za-z][-A-Za-z0-9 _\t\n\r\f]*)){0,7})[\\t\\n\\r\\f ]*$",
+      "description": "1 to 8 comma-separated families: a bare name of letters, digits, spaces, - and _ (starting with a letter; the generic names are bare names), or a \"quoted\" or 'quoted' name of up to 64 letters, digits, spaces, . - and _. At most 200 characters."
+    },
+    "fontSrc": {
+      "type": "string",
+      "pattern": "^(?:[dD][aA][tT][aA]:[fF][oO][nN][tT]/(?:[wW][oO][fF][fF]2|[wW][oO][fF][fF]|[tT][tT][fF]|[oO][tT][fF]);[bB][aA][sS][eE]64,[A-Za-z0-9+/]+={0,2}|assets/[A-Za-z0-9][A-Za-z0-9._-]{0,63}(?<=\\.(?:[wW][oO][fF][fF]2|[wW][oO][fF][fF]|[tT][tT][fF]|[oO][tT][fF])))$",
+      "description": "data:font/(woff2|woff|ttf|otf);base64,<data> (900 KB decoded at most, checked by the server), or assets/<file> with a .woff2, .woff, .ttf or .otf name (folder themes only). No white space is trimmed."
+    },
+    "text40": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 40,
+      "pattern": "^[^<>\\u0000-\\u001f\\u007f-\\u009f\\u200b\\u200e\\u200f\\u2028\\u2029\\u202a-\\u202e\\u2060-\\u2069\\ufeff\\ufffd]*$"
+    },
+    "iconAsset": {
+      "type": "string",
+      "pattern": "^assets/[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+      "description": "assets/<file> path to a picture (.png .jpg .jpeg .webp .gif .svg)."
+    },
+    "singleFile": {
+      "description": "A manifest for a single <id>.json: the same as the root, and no assets/<file> reference anywhere (tokens, fonts, css): a single file cannot use asset files.",
+      "allOf": [
+        {
+          "$ref": "#"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "tokens": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "additionalProperties": {
+                "not": {
+                  "type": "string",
+                  "pattern": "assets/"
+                }
+              }
+            },
+            "fonts": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "object",
+                "properties": {
+                  "src": {
+                    "not": {
+                      "type": "string",
+                      "pattern": "^assets/"
+                    }
+                  }
+                }
+              }
+            },
+            "css": {
+              "not": {
+                "type": "string",
+                "pattern": "assets/"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

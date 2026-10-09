@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>ShadowPKG-Builder</Name>
+  <Repository>shadowpkg-builder:latest</Repository>
+  <Registry/>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/NotSoTypicalGamer/ShadowPKG/issues</Support>
+  <Overview>EXPERIMENTAL. Builds ShadowPKG "Build .pkg" jobs on the server itself, running a Windows repack kit that you supply under Wine. Build the image first: docker build -t shadowpkg-builder tools/container. Easiest: run install.sh from tools/container, which does all of this and leaves the network off. By hand, with Network left on bridge, from a console: docker exec -it ShadowPKG-Builder node /app/runner.js setup, or the steps one at a time: (1) docker exec -d ShadowPKG-Builder node /app/runner.js init, and follow /config/init.log until it says INIT COMPLETE; (2) docker exec -it ShadowPKG-Builder node /app/runner.js smoke; (3) docker exec -it ShadowPKG-Builder node /app/runner.js trust, which approves the kit's exact files. Then set Network to None and recreate: nothing after setup needs it. A restart kills a running build, so keep this container out of scheduled backup, auto-update and restart jobs. See the README.</Overview>
+  <WebUI/>
+  <Category>Tools:</Category>
+  <ExtraParams/>
+  <PostArgs/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires/>
+  <Config Name="Kit (read-only)" Target="/kit" Default="" Mode="ro" Description="The folder holding your repack kit, already EXTRACTED: build-from-folder.ps1, scripts/ and toolchain/ directly inside it. Never put it in the image." Type="Path" Display="always" Required="true" Mask="false"/>
+  <Config Name="Library" Target="/games" Default="" Mode="rw" Description="The same folder ShadowPKG's own Library points at, so job paths line up. The finished package is written here, next to the dump." Type="Path" Display="always" Required="true" Mask="false"/>
+  <Config Name="ShadowPKG config (read-only)" Target="/spkg" Default="/mnt/user/appdata/ShadowPKG" Mode="ro" Description="ShadowPKG's own config folder. The runner reads builds.json from it to find waiting jobs, so it needs no network access." Type="Path" Display="always" Required="true" Mask="false"/>
+  <Config Name="Runner config" Target="/config" Default="/mnt/user/appdata/ShadowPKG-Builder" Mode="rw" Description="Holds pins.json (the approved kit hashes) and init.log." Type="Path" Display="always" Required="true" Mask="false"/>
+  <Config Name="Wine prefix" Target="/prefix" Default="/mnt/user/appdata/ShadowPKG-Builder/prefix" Mode="rw" Description="The Wine environment (about 2 GB once .NET is in). Kept out of the image so recreating the container does not lose it." Type="Path" Display="always" Required="true" Mask="false"/>
+  <Config Name="Work folder" Target="/work" Default="" Mode="rw" Description="Scratch space for builds: a copy of the kit, the SDK's temp files, and the package before it is copied out. Put it on a fast disk with room for about the size of the biggest dump." Type="Path" Display="always" Required="true" Mask="false"/>
+  <Config Name="LIBRARIES" Target="LIBRARIES" Default="" Mode="" Description="Leave empty. ShadowPKG lists its libraries in its config folder, and the builder uses every one whose folder is mounted here at the same container path as in ShadowPKG (add a Path for each extra library: container path /extra-libraries/Seed, host path the same folder). Only for a library mounted at a different path: id=path, comma separated, e.g. seed=/seed." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="COPY_DUMP" Target="COPY_DUMP" Default="" Mode="" Description="Set to 1 to copy the dump to the Work folder before building. Worth trying if reading straight from the array is slow, because the SDK memory-maps the dump's files." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+</Container>

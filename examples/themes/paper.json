@@ -1,0 +1,16 @@
+{
+  "shadowtheme": 1,
+  "id": "paper",
+  "name": "Paper",
+  "author": "ShadowPKG examples",
+  "description": "A light theme: white cards on a pale grey page, blue accent.",
+  "version": "1.0",
+  "base": "wii",
+  "mode": "light",
+  "palette": {
+    "background": "#eef1f5",
+    "surface": "#ffffff",
+    "text": "#1d2733",
+    "accent": "#2f6fdd"
+  }
+}

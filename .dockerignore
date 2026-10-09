@@ -1,0 +1,17 @@
+# The image only ever copies server.js and index.html (see the Dockerfile), so
+# nothing else needs to travel to the Docker daemon. Keeping it out also stops a
+# local build/ folder, with hundreds of MB of tools, being sent with every build.
+# tools/ has its own Dockerfile and its own build context; it is not part of this one.
+.git
+build/
+tools/
+node_modules/
+config/
+data/
+*.md
+*.xml
+*.bak
+*.bak-*
+*.orig
+HANDOFF.md
+handoff-*

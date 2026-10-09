@@ -1,0 +1,18 @@
+{
+  "shadowtheme": 1,
+  "id": "aurora",
+  "name": "Aurora",
+  "author": "ShadowPKG examples",
+  "description": "A folder theme: a night sky of stars behind teal panels. Shows assets and extra CSS.",
+  "version": "1.0",
+  "base": "midnight",
+  "palette": {
+    "background": "#06121c",
+    "surface": "#0d2233",
+    "text": "#e6fff8",
+    "accent": "#2ee6a6"
+  },
+  "tokens": {
+    "--bg-image": "url(assets/stars.svg), radial-gradient(ellipse at 50% -10%, #061a26 0%, #06121c 70%)"
+  }
+}

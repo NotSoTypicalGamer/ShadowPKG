@@ -1,0 +1,33 @@
+# Runtime data — these hold your own console addresses and library contents.
+profiles.json
+links.json
+archives.json
+packages.json
+history.json
+config/
+data/
+
+# Backups made while editing in place
+*.bak
+*.bak-*
+*.orig
+
+# Editors and OS clutter
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Not used by the app, but keep them out if anyone adds tooling later
+node_modules/
+npm-debug.log*
+*.tgz
+
+# Local build output (the Windows builder's tools and exes: hundreds of MB).
+build/
+
+# Local, machine-specific copy of the Unraid template (real paths and IP)
+my-*.xml
+
+# Kept locally as a reference for whoever picks this up next; not published.
+HANDOFF.md
