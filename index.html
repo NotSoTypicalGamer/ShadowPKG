@@ -2421,13 +2421,13 @@
     <button class="ghost pb pb-o" id="cfgClose" type="button">Done</button>
   </div>
   <div class="dlg-body">
-    <p class="delnote" id="cfgIntro">These are the variables the container was created with, for the ones that can change while it runs. A value saved here wins over the variable, takes effect at once and is kept in the config folder; <b>Use the variable</b> hands it back.</p>
+    <p class="delnote" id="cfgIntro">How this instance behaves. Changes take effect at once and are kept in the config folder, and a value saved here wins over the variable it came from; <b>Use the variable</b> hands it back. Items marked <b>container setting</b> need a container change to apply.</p>
     <div class="formerr" id="cfgErr"></div>
     <div id="cfgList"></div>
     <details class="cfgfixed">
-      <summary>Fixed when the container is created</summary>
-      <p class="sub">These need a change to the container itself (its Path, Port and Variable entries in Unraid), then a recreate. Shown so you can see what it is running with, and where each value came from.</p>
-      <div id="cfgFixed"></div>
+      <summary>Advanced</summary>
+      <p class="sub">Settings you rarely need to change. Some are marked "container setting" — those need a change to the container (its Path, Port or Variable entries in Unraid) and a recreate to apply.</p>
+      <div id="cfgAdv"></div>
     </details>
   </div>
 </dialog>
@@ -3565,27 +3565,29 @@ function cfgRow(st) {
   return row;
 }
 
+function cfgFixedRow(f) {
+  const r = el('div', 'cfgfixrow');
+  r.append(el('b', null, f.label), el('code', null, f.value), el('span', 'chip mute', 'container setting'));
+  if (f.note) r.append(el('div', 'sub', f.note));
+  return r;
+}
+
 function renderCfg() {
   const list = $('cfgList'); list.replaceChildren();
+  const adv = $('cfgAdv'); adv.replaceChildren();
   if (!cfgData.writable) list.append(el('div', 'note', "The config folder is read-only, so nothing changed here would survive a restart. These are shown, not editable."));
-  const groups = [];
-  for (const st of cfgData.settings) {
-    let g = groups.find(x => x.name === st.group);
-    if (!g) groups.push(g = { name: st.group, items: [] });
-    g.items.push(st);
-  }
+  const ORDER = ['Library', 'Network', 'Consoles', 'Notifications', 'Appearance', 'Security', 'Extraction and builds', 'Advanced'];
+  const ADVANCED = new Set(['Extraction and builds', 'Advanced']);
+  const groups = [], byName = new Map();
+  const ensure = name => { let g = byName.get(name); if (!g) { g = { name, items: [] }; byName.set(name, g); groups.push(g); } return g; };
+  for (const f of cfgData.fixed) ensure(f.group).items.push({ fixed: f });
+  for (const st of cfgData.settings) ensure(st.group).items.push({ cfg: st });
+  groups.sort((a, b) => { const ai = ORDER.indexOf(a.name), bi = ORDER.indexOf(b.name); return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi); });
   for (const g of groups) {
     const box = el('div', 'cfggroup');
     box.append(el('h3', null, g.name));
-    for (const st of g.items) box.append(cfgRow(st));
-    list.append(box);
-  }
-  const fixed = $('cfgFixed'); fixed.replaceChildren();
-  for (const f of cfgData.fixed) {
-    const r = el('div', 'cfgfixrow');
-    r.append(el('b', null, f.label), el('code', null, f.value), el('span', 'chip mute', CFG_SOURCE[f.source] || f.source));
-    if (f.note) r.append(el('div', 'sub', f.note));
-    fixed.append(r);
+    for (const it of g.items) box.append(it.cfg ? cfgRow(it.cfg) : cfgFixedRow(it.fixed));
+    (ADVANCED.has(g.name) ? adv : list).append(box);
   }
 }
 $('diagSettings').onclick = openSettings;
