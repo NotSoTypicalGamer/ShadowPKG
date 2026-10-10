@@ -9588,7 +9588,9 @@ async function sendPayloadTo(res, prof, portOverride, buf, name) {
 // there to pick again from any device instead of being re-chosen off someone's computer
 // every time. Made at startup; a config folder that is not writable simply means nothing
 // can be kept, which the dialog says rather than failing silently.
-const PAYLOADS_DIR = path.join(CONFIG_DIR, 'payloads');
+// Payloads live in the /payloads mount when the template provides one, else in a
+// subfolder of the config dir (the old place). PAYLOADS_DIR overrides both.
+const PAYLOADS_DIR = process.env.PAYLOADS_DIR || (fs.existsSync('/payloads') ? '/payloads' : path.join(CONFIG_DIR, 'payloads'));
 let payloadsWritable = false;
 try { fs.mkdirSync(PAYLOADS_DIR, { recursive: true }); payloadsWritable = true; } catch { payloadsWritable = false; }
 

@@ -24,6 +24,8 @@
 
   <Config Name="Config" Target="/config" Default="/mnt/user/appdata/ShadowPKG" Mode="rw" Description="Holds profiles.json, settings.json, installed themes and the indexes, so they survive a container update." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/ShadowPKG</Config>
 
+  <Config Name="Payloads" Target="/payloads" Default="" Mode="rw" Description="Optional folder for payloads (.elf/.bin/.js/.lua/.jar). Map a host folder here and the app lists and saves payloads in it, so you can point it at a folder you already keep payloads in. Leave empty to keep them inside the config folder instead." Type="Path" Display="always" Required="false" Mask="false"></Config>
+
   <Config Name="This server's address (PUBLIC_BASE)" Target="PUBLIC_BASE" Default="" Mode="" Description="Where the CONSOLE reaches THIS server: the IP of the machine running ShadowPKG plus this container's port, e.g. http://192.168.1.10:12867. Packages are downloaded from here, so it must be a LAN address the console can reach. Not the console's own address. Leave empty to work it out from the address you open the web page with." Type="Variable" Display="always" Required="false" Mask="false"/>
 
   <Config Name="PS5 address (PS5_HOST)" Target="PS5_HOST" Default="" Mode="" Description="Optional. The CONSOLE's address, where its DPI v2 installer page is served, e.g. 192.168.1.50:12800 — the port is the payload's, not this container's. Only used to seed the first console on a fresh install; consoles are added and edited in the app itself." Type="Variable" Display="always" Required="false" Mask="false"/>
