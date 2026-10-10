@@ -967,6 +967,7 @@
   .row.dim .name, .row.dim .icon { opacity: .6; }
   .row.plain:hover { background: transparent; }
   .delnote { font-size: 13px; color: var(--muted); margin: 8px 0 12px; }
+  .panel .delnote { color: var(--panel-muted); }
 
   /* ---- Other files, folder boxes and the file details ------------------------------------------------
      Only the tokens above, so every theme reads. A file's icon takes the panel's muted text colour and not --icon:
@@ -1170,7 +1171,7 @@
   .reportmsg.bad { color: var(--err); }
   .cfggroup { margin-top: 16px; }
   .cfggroup h3 { font-size: 14px; margin: 0 0 4px; color: var(--muted); font-weight: 700; }
-  #cfgDlg .sub, #cfgDlg .cfgfixrow .chip { color: var(--muted); }
+  #cfgDlg .sub, #cfgDlg .chip.mute { color: var(--muted); }
   .cfgrow { padding: 12px 0; border-top: 1px solid var(--line); }
   .cfghead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .cfghead b { font-size: 15px; font-weight: 600; }
