@@ -2357,7 +2357,7 @@ async function walk(src, dir, out, ctx = { pending: 0 }) {
       try {
         const st = await fsp.stat(full);
         const rel = path.relative(root, full).split(path.sep).join('/');
-        const r = rarPkgs(full, st, true);
+        const r = await rarPkgs(full, st, true);
         if (r.pending) ctx.pending++;
         for (const x of r.entries) out.push(withMeta(src, { path: rel + ARC + x.name, size: x.size, mtime: st.mtimeMs, inArchive: e.name }));
       } catch {}
@@ -2390,10 +2390,10 @@ function safeResolve(root, rel) {
 const ARC = '!/';                 // separates the archive path from the entry inside it
 const rarCache = new Map();       // archive path -> {key, entries, note}
 
-function readAt(fd, pos, len) {
+async function readAt(fd, pos, len) {
   const b = Buffer.alloc(len);
-  const n = fs.readSync(fd, b, 0, len, pos);
-  return b.subarray(0, n);
+  const { bytesRead } = await fsp.read(fd, b, 0, len, pos);
+  return b.subarray(0, bytesRead);
 }
 
 // RAR5 stores numbers 7 bits at a time, high bit = "another byte follows".
@@ -2429,11 +2429,11 @@ function isEncrypted(buf, at, len) {
 const RAR5_SIG = Buffer.from([0x52, 0x61, 0x72, 0x21, 0x1a, 0x07, 0x01, 0x00]);
 const RAR4_SIG = Buffer.from([0x52, 0x61, 0x72, 0x21, 0x1a, 0x07, 0x00]);
 
-function scanRar4(fd, size) {
+async function scanRar4(fd, size) {
   const entries = [];
   let pos = 7, note = null, volume = false, guard = 0;
   while (pos < size && guard++ < 50000) {
-    const buf = readAt(fd, pos, 4096);
+    const buf = await readAt(fd, pos, 4096);
     if (buf.length < 11) break;
     const type = buf[2];
     const flags = buf.readUInt16LE(3);
@@ -2474,19 +2474,19 @@ function scanRar4(fd, size) {
   return { entries, note, volume };
 }
 
-function scanRar(full) {
-  const fd = fs.openSync(full, 'r');
+async function scanRar(full) {
+  const fd = await fsp.open(full, 'r');
   try {
-    const size = fs.fstatSync(fd).size;
-    const sig = readAt(fd, 0, 8);
+    const size = (await fd.stat()).size;
+    const sig = await readAt(fd, 0, 8);
     if (sig.length < 8) return { entries: [], note: 'too small to be an archive' };
-    if (sig.subarray(0, 7).equals(RAR4_SIG)) return scanRar4(fd, size);
+    if (sig.subarray(0, 7).equals(RAR4_SIG)) return await scanRar4(fd, size);
     if (!sig.equals(RAR5_SIG)) return { entries: [], note: 'not a RAR archive' };
 
     const entries = [];
     let pos = 8n, note = null, volume = false, guard = 0;
     while (pos < BigInt(size) && guard++ < 50000) {
-      const buf = readAt(fd, Number(pos), 4096);
+      const buf = await readAt(fd, Number(pos), 4096);
       if (buf.length < 16) break;
       let p = 4;                                   // header CRC32
       let hs, ht, hf, extra = 0n, data = 0n;
@@ -2523,7 +2523,7 @@ function scanRar(full) {
       pos = pos + hStart + hs + data;
     }
     return { entries, note, volume };
-  } finally { fs.closeSync(fd); }
+  } finally { await fd.close(); }
 }
 
 // A package split across volumes is still one unbroken byte run, just spread
@@ -2582,12 +2582,12 @@ function volumesFor(full) {
 }
 
 // Scan a whole set and stitch each package's chunks together in volume order.
-function scanVolumeSet(volumes) {
+async function scanVolumeSet(volumes) {
   const byName = new Map();
   let note = null;
   for (const vol of volumes) {
     let r;
-    try { r = scanRar(vol); } catch (e) { note = e.message; break; }
+    try { r = await scanRar(vol); } catch (e) { note = e.message; break; }
     if (r.note) { note = r.note; break; }
     for (const e of r.entries) {
       if (!/\.pkg$/i.test(e.name)) continue;
@@ -2672,7 +2672,7 @@ async function scanStep() {
   scanQueued.delete(full);
   try {
     const st = await fsp.stat(full);
-    rarPkgs(full, st);                       // fills and persists the cache
+    await rarPkgs(full, st);                       // fills and persists the cache
   } catch {}
   setTimeout(scanStep, 20);                  // leave the disk some room
 }
@@ -2688,7 +2688,7 @@ function setKeyFor(volumes) {
   return key;
 }
 
-function rarPkgs(full, st, cachedOnly) {
+async function rarPkgs(full, st, cachedOnly) {
   // Later volumes belong to the set their first volume represents.
   if (isLaterVolume(full)) {
     const val = { key: `${st.size}|${st.mtimeMs}`, note: null, entries: [], blocked: [], part: true };
@@ -2708,7 +2708,7 @@ function rarPkgs(full, st, cachedOnly) {
   }
 
   if (volumes) {
-    const set = scanVolumeSet(volumes);
+    const set = await scanVolumeSet(volumes);
     const val = { key, note: null, entries: set.entries, blocked: set.blocked, parts: set.parts };
     rarCache.set(full, val);
     saveIndexSoon();
@@ -2716,7 +2716,7 @@ function rarPkgs(full, st, cachedOnly) {
   }
 
   let r;
-  try { r = scanRar(full); } catch (e) { r = { entries: [], note: e.message }; }
+  try { r = await scanRar(full); } catch (e) { r = { entries: [], note: e.message }; }
   const pkgs = r.entries.filter(e => /\.pkg$/i.test(e.name));
   const entries = r.note ? [] : pkgs.filter(e => e.stored && e.whole && !e.encrypted && !e.split);
   const blocked = pkgs.filter(e => !entries.includes(e)).map(e => ({
@@ -2747,7 +2747,7 @@ async function resolveTarget(src, rel) {
   let st;
   try { st = await fsp.stat(full); } catch { return { error: 'not found' }; }
   if (!st.isFile()) return { error: 'not found' };
-  const e = rarPkgs(full, st).entries.find(x => x.name === inner);
+  const e = (await rarPkgs(full, st)).entries.find(x => x.name === inner);
   if (!e) return { error: 'not found' };
   if (e.segments) return { segments: e.segments, size: e.size, mtime: st.mtime };
   return { full, base: e.offset, size: e.size, mtime: st.mtime };
@@ -4850,7 +4850,7 @@ async function listArchive(volumes, sizes) {
   let note = null;
   for (const [i, v] of volumes.entries()) {
     let r;
-    try { r = scanRar(v); } catch (e) { note = `${path.basename(v)}: ${e.message}`; break; }
+    try { r = await scanRar(v); } catch (e) { note = `${path.basename(v)}: ${e.message}`; break; }
     if (r.note) { note = `${path.basename(v)}: ${r.note}`; break; }
     // A header can be whole while the data it describes was never all written (a download cut short).
     const cut = r.entries.find(e => e.offset + e.chunk > sizes[i]);
@@ -5144,7 +5144,7 @@ async function browse(src, rel, hidden = false, others = false) {
     else if (e.isFile() && /\.(rar|r\d\d)$/i.test(e.name)) {
       try {
         const st = await fsp.stat(full);
-        const r = rarPkgs(full, st);
+        const r = await rarPkgs(full, st);
         if (r.part) continue;                       // a later volume of a set listed elsewhere
         for (const x of r.entries) pkgs.push(withMeta(src, { name: x.name.split('/').pop(), path: relPath + ARC + x.name, size: x.size, mtime: st.mtimeMs, inArchive: e.name, parts: r.parts }));
         const inside = r.blocked.length ? r.blocked : r.entries;
@@ -6694,11 +6694,11 @@ function jobView(j) {
 
 // Total unpacked size of everything in an archive (or set of volumes), for the
 // progress bar and for checking there is room. 0 when it cannot be worked out.
-function archiveTotal(full) {
+async function archiveTotal(full) {
   try {
     const seen = new Map();
     for (const v of volumesFor(full) || [full]) {
-      for (const e of scanRar(v).entries || []) if (!seen.has(e.name)) seen.set(e.name, e.size);
+      for (const e of (await scanRar(v)).entries || []) if (!seen.has(e.name)) seen.set(e.name, e.size);
     }
     return [...seen.values()].reduce((n, x) => n + (Number.isFinite(x) ? x : 0), 0);
   } catch { return 0; }
@@ -6809,8 +6809,7 @@ async function runExtractAll(j) {
       // instead of only reacting at the very end.
       if (isRarJob && now - lastRescan > 8000) {
         lastRescan = now;
-        const fresh = archiveTotal(j.full);
-        if (fresh > j.total) j.total = fresh;
+        archiveTotal(j.full).then(fresh => { if (fresh > j.total) j.total = fresh; });
       }
       if (bytes > j.total) j.total = bytes;
     }, 1000);
@@ -8616,7 +8615,7 @@ async function deleteLocalOne(src, raw, seen) {
 async function archiveFacts(full, st, name) {
   if (/\.(zip|7z)$/i.test(name)) return { parts: 0, reason: extOf(name) + ' archive', pkgs: [], deletable: false };
   if (isLaterVolume(full)) return { parts: 0, reason: 'a later volume of a set', pkgs: [], deletable: false };
-  const r = rarPkgs(full, st);
+  const r = await rarPkgs(full, st);
   const leaf = b => ({ name: b.name.split('/').pop(), size: b.size });
   const all = [...r.blocked, ...r.entries].map(leaf);
   let pkgs = (r.blocked.length ? r.blocked : r.entries).map(leaf);
@@ -8667,7 +8666,7 @@ async function propertiesOf(src, relRaw) {
   const isDir = st.isDirectory(), isLink = st.isSymbolicLink();
   if (cut >= 0) {
     const inner = relRaw.slice(cut + ARC.length);
-    const entry = st.isFile() && /\.rar$/i.test(outer) ? rarPkgs(outer, st).entries.find(x => x.name === inner) : null;
+    const entry = st.isFile() && /\.rar$/i.test(outer) ? (await rarPkgs(outer, st)).entries.find(x => x.name === inner) : null;
     if (!entry) return no(404, 'not found');
     // It has no dates or attributes of its own: they are the archive's.
     inArchive = name;
@@ -13074,14 +13073,14 @@ const server = http.createServer(async (req, res) => {
         if (noRoom) return sendJson(res, 409, { error: noRoom });
         roomDirForJob = roomDir;
       } else if (all) {
-        total = isRar ? archiveTotal(full) : await listedTotal(tools, full);
+        total = isRar ? await archiveTotal(full) : await listedTotal(tools, full);
         try {
           const s = await fsp.statfs(dir);
           const free = Number(s.bavail) * Number(s.bsize) - reservedOn(dir);
           if (total && free < total) return sendJson(res, 400, { error: `Not enough room next to the archive: it unpacks to about ${fmtGb(total)} and ${fmtGb(free)} is free.` });
         } catch { /* not every filesystem answers */ }
       } else {
-        const wanted = rarPkgs(full, st).blocked.filter(x => {
+        const wanted = (await rarPkgs(full, st)).blocked.filter(x => {
           try { return fs.statSync(path.join(dir, x.name.split('/').pop())).size !== x.size; } catch { return true; }
         });
         if (!wanted.length) return sendJson(res, 400, { error: 'already extracted — the packages are already sitting next to the archive' });
