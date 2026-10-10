@@ -2713,6 +2713,18 @@ async function loadTailscale(fid) {
 
 function renderProfiles() {
   const list = $('profList'); list.replaceChildren();
+  if (!profiles.length) {
+    const e = el('div', 'empty');
+    e.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:10px;';
+    const disc = el('button', 'ghost pb pb-s', 'Discover consoles'); disc.type = 'button';
+    disc.title = 'Look for PS4 and PS5 installers on the local network.';
+    disc.onclick = () => $('discover').click();
+    e.append(el('div', null, 'No consoles saved yet.'),
+      disc,
+      el('div', 'sub', 'Finds PS5s with a DPI v2 payload running and PS4s with Remote Package Installer open — or add one below.'));
+    list.append(e);
+    return;
+  }
   for (const p of profiles) {
     const row = el('div', 'prof' + (p.id === activeId ? ' active' : ''));
     const check = el('span', 'check', p.id === activeId ? '✓' : '');
