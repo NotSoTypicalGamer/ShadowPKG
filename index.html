@@ -2891,7 +2891,7 @@ function editForm(p) {
   // A sentence, not a toolbar label like "Group"/"Covers" — .chk defaults to
   // nowrap for those short ones, which ran this dialog wider than the screen
   // (the same fix .askline/#archAskBox already needed elsewhere).
-  const ps4Label = el('label', 'chk askline'); ps4Label.append(ps4, document.createTextNode(' This is a PS4 (Remote Package Installer)'));
+  const ps4Label = el('label', 'chk askline'); ps4Label.append(ps4, document.createTextNode(' PS4 (Remote Package Installer)'));
   ps4Label.title = 'Sends to it wait until the app is opened, instead of failing.';
 
   // The console's payload loader port, used by the row's Send payload button. Kept with
@@ -2908,7 +2908,7 @@ function editForm(p) {
   // in its own fields so the two never get conflated.
   const ftpDetails = el('details', 'ftpFields');
   ftpDetails.open = !!p.ftpHost;
-  const ftpSummary = el('summary', null, 'FTP (for a jailbroken console)');
+  const ftpSummary = el('summary', null, 'FTP');
   const dpiIp = (p.host || '').split(':')[0];
   // A pre-existing console almost always has one address for both DPI and FTP,
   // so this is filled in for real (not just shown as a placeholder) for a
@@ -2932,7 +2932,7 @@ function editForm(p) {
   // 2121 is only a placeholder default, not a claim of certainty — the real port
   // depends on which FTP homebrew the console runs (goldhen, etaHEN, ...), and
   // this says so rather than pretending there is one right answer.
-  const ftpHelp = el('div', 'delnote', 'The port depends on which FTP app is installed on the console — there is no single correct default. Many goldhen/etaHEN setups are anonymous: leave user and password blank to try that.');
+  const ftpHelp = el('div', 'delnote', 'Port depends on the console FTP app; goldhen/etaHEN are usually anonymous — leave user and password blank.');
   ftpDetails.append(ftpSummary, ftpGrid, ftpHelp);
 
   const err = el('div', 'formerr');
@@ -2940,7 +2940,8 @@ function editForm(p) {
   del.disabled = profiles.length === 1; if (del.disabled) del.title = 'Keep at least one console';
   const save = el('button', 'pb pb-x', 'Save'); save.type = 'submit';
   const actions = el('div', 'actions'); actions.append(del, el('span', 'spacer'), save);
-  f.append(grid, ps4Label, payloadLabel, ftpDetails, err, actions);
+  const advGrid = el('div', 'grid2'); advGrid.append(ps4Label, payloadLabel);
+  f.append(grid, advGrid, ftpDetails, err, actions);
   f.onsubmit = async e => {
     e.preventDefault();
     try {
