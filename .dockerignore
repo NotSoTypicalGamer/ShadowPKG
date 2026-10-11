@@ -8,6 +8,13 @@ tools/
 node_modules/
 config/
 data/
+profiles.json
+links.json
+archives.json
+packages.json
+history.json
+titles.json
+server.log
 *.md
 *.xml
 *.bak

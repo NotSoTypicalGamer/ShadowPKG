@@ -4,6 +4,8 @@ links.json
 archives.json
 packages.json
 history.json
+titles.json
+server.log
 config/
 data/
 
