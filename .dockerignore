@@ -15,6 +15,8 @@ packages.json
 history.json
 titles.json
 server.log
+libraries.json
+transfers.json
 *.md
 *.xml
 *.bak

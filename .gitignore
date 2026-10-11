@@ -6,6 +6,8 @@ packages.json
 history.json
 titles.json
 server.log
+libraries.json
+transfers.json
 config/
 data/
 
