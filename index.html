@@ -571,7 +571,7 @@
   .libmenu .menu .mirow { display: flex; align-items: center; }
   .libmenu .menu .mirow > button:first-child { flex: 1; min-width: 0; }
   .libmenu .menu .mirow + button, .libmenu .menu button + .mirow, .libmenu .menu .mirow + .mirow { border-top: 1px solid var(--line); }
-  .libmenu .menu .mirow button.instbtn { width: auto; flex: none; margin: 0 10px 0 4px; padding: 5px 9px; font-size: 12px; font-weight: 700; color: var(--link); border: 1px solid var(--line); border-radius: var(--radius); white-space: nowrap; }
+  .libmenu .menu .mirow button.instbtn { width: auto; flex: none; margin: 0 10px 0 4px; padding: 5px 9px; font-size: 12px; font-weight: 700; color: var(--panel-text); border: 1px solid var(--line); border-radius: var(--radius); white-space: nowrap; }
   #instList { max-height: 60vh; overflow-y: auto; overflow-x: hidden; }
   #instList .inst { display: flex; gap: 10px; align-items: flex-start; padding: 9px 8px 9px 4px; border-top: 1px solid var(--line); }
   #instList .inst:first-child { border-top: 0; }
@@ -678,6 +678,8 @@
   .row-cover { width: 40px; height: 40px; flex: none; border-radius: 6px; object-fit: cover; background: var(--panel-head); }
   .name { font-size: 15px; word-break: break-word; }
   .sub { font-size: 12px; color: var(--panel-muted); margin-top: 2px; font-variant-numeric: tabular-nums; word-break: break-word; }
+  dialog .sub { color: var(--muted); }
+  .panel .sub { color: var(--panel-muted); }
   .state { font-size: 12px; margin-top: 3px; font-weight: 600; }
   .state.ok { color: var(--ok); } .state.err { color: var(--err); } .state.busy, .state.held { color: var(--link); }
   .panel .state.ok { color: var(--panel-ok); } .panel .state.err { color: var(--panel-err); } .panel .state.busy, .panel .state.held { color: var(--panel-busy, var(--icon)); }
@@ -2507,7 +2509,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.0.3';
+const APP_VERSION = '1.0.4';
 $('appVer').textContent = 'v' + APP_VERSION;
 const ICON_DIR = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 const CHEV = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
