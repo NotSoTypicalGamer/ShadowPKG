@@ -778,9 +778,9 @@
 
   /* ---- Dialogs ------------------------------------------------------------- */
   .testline { font-size: 13px; padding: 8px 12px 10px 40px; line-height: 1.45; }
-  .testline.good { color: var(--ok); }
-  .testline.bad { color: var(--err); }
-  .testline.wait { color: var(--muted); }
+  .testline.good { color: var(--panel-ok); }
+  .testline.bad { color: var(--panel-err); }
+  .testline.wait { color: var(--panel-muted); }
   .findhit { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
   .findhit button { padding: 5px 9px; font-size: 12px; }
   .addhead { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -1794,7 +1794,7 @@
     </div>
     <div class="credits-divider" aria-hidden="true"></div>
     <div class="credits-text">
-      <div class="author">ShadowPKG by <b>Not So Typical Gamer</b> (NSTG)</div>
+      <div class="author">ShadowPKG <span id="appVer"></span> by <b>Not So Typical Gamer</b> (NSTG)</div>
       <div class="testers">Tested by NathanDrake4530, Franck_Hosting and rmux</div>
       <div class="testers">Found a problem? <a href="https://github.com/NotSoTypicalGamer/ShadowPKG/issues/new" target="_blank" rel="noopener">Submit an issue</a></div>
       <div class="testers">PS5 package reading built on format work by <a href="https://github.com/SvenGDK/LibProsperoPKG" target="_blank" rel="noopener">LibProsperoPkg</a> (SvenGDK)</div>
@@ -2505,6 +2505,8 @@
 
 <script>
 const $ = id => document.getElementById(id);
+const APP_VERSION = '1.0.1';
+$('appVer').textContent = 'v' + APP_VERSION;
 const ICON_DIR = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 const CHEV = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
 
