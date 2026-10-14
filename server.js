@@ -12369,6 +12369,51 @@ const server = http.createServer(async (req, res) => {
       return sendPayloadTo(res, prof, url.searchParams.get('port'), buf, name);
     }
 
+    // Download a local library file to the person's browser or phone: the same
+    // bytes the console would be served, but as a download (Content-Disposition:
+    // attachment) instead of a package stream. src + path pick the file, the
+    // same as everywhere else; a package inside a stored archive streams too.
+    if (req.method === 'GET' && p === '/api/download') {
+      const src = findSource(url.searchParams.get('src'));
+      if (!src) return sendJson(res, 404, { error: 'library not found' });
+      const rel = String(url.searchParams.get('path') || '');
+      if (!rel) return sendJson(res, 400, { error: 'no file was asked for' });
+      let full = null, base = 0, size = 0, mtime = null, segments = null;
+      if (rel.indexOf(ARC) < 0) {
+        // Any plain file in the library, whatever the extension — this is a
+        // download to a person's device, not a console package stream.
+        full = safeDir(src.root, rel);
+        if (!full) return sendJson(res, 403, { error: 'that file is outside the library' });
+        let st;
+        try { st = await fsp.stat(full); } catch { return sendJson(res, 404, { error: 'file not found' }); }
+        if (!st.isFile()) return sendJson(res, 404, { error: 'file not found' });
+        size = st.size; mtime = st.mtime;
+      } else {
+        const t = await resolveTarget(src, rel);
+        if (t.error === 'forbidden') return sendJson(res, 403, { error: 'that file is outside the library' });
+        if (t.error) return sendJson(res, 404, { error: 'file not found' });
+        full = t.full || null; base = t.base || 0; size = t.size; mtime = t.mtime; segments = t.segments || null;
+      }
+      const name = rel.split('!/').pop().split('/').pop() || 'download';
+      res.writeHead(200, {
+        'Content-Type': 'application/octet-stream',
+        'Content-Length': size,
+        'Accept-Ranges': 'bytes',
+        'Last-Modified': mtime.toUTCString(),
+        'Content-Disposition': `attachment; filename="${name.replace(/["\\]/g, '_')}"`,
+      });
+      if (req.method === 'HEAD') return res.end();
+      let stream;
+      if (segments) {
+        stream = segmentStream(segments, 0, size - 1, res, () => {});
+      } else {
+        stream = fs.createReadStream(full, { start: base, end: base + size - 1, highWaterMark: 1024 * 1024 });
+        stream.on('error', e => { console.error(`download read error ${rel}: ${e.message}`); res.destroy(); });
+      }
+      stream.pipe(res);
+      return;
+    }
+
     if (req.method === 'GET' && p === '/api/extracts') {
       return sendJson(res, 200, { extract: extractCapability(), jobs: [...extractions.values()].slice(-20).map(jobView) });
     }

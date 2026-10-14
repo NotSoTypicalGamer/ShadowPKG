@@ -2502,7 +2502,9 @@
       <button class="ghost pb pb-t" id="extractBtn" type="button" hidden>Extract</button>
       <button class="ghost pb pb-t" id="regionBtn" type="button" hidden>Change region…</button>
       <button class="ghost pb pb-t" id="ignoreAttnBtn" type="button" hidden>Ignore</button>
+      <button class="ghost pb pb-t" id="dlBtn" type="button">Download</button>
       <button class="ghost pb pb-t" id="link" type="button">Copy link</button>
+      <button class="ghost pb pb-t" id="sendPayload" type="button" hidden>Send payload</button>
       <button class="pb pb-x" id="send" type="button">Send to PS5</button>
     </div>
   </div>
@@ -2510,7 +2512,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.0.10';
+const APP_VERSION = '1.0.11';
 $('appVer').textContent = 'v' + APP_VERSION;
 const ICON_DIR = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 const CHEV = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
@@ -6312,6 +6314,26 @@ function updateTray() {
   // Info is the one button for every kind: a package's own Info, or the file details of anything else (or the summary of several).
   $('infoBtn').disabled = n === 0;
   $('infoBtn').title = n === 0 ? 'Info (select something first)' : one ? 'Info about ' + one.path.split('!/').pop().split('/').pop() : `Info about the ${n.toLocaleString()} selected items`;
+  // Download: one local file (anything on disk or inside a stored archive), never
+  // a folder. FTP has its own download in the file details dialog, so this is
+  // local libraries only.
+  const oneFile = !!one && !one.dir && !isFtpSrc(one.src);
+  $('dlBtn').disabled = !oneFile;
+  $('dlBtn').title = n === 0 ? 'Select one file to download it to this device'
+    : one && one.dir ? 'Folders cannot be downloaded as one file'
+    : isFtpSrc(one.src) ? 'For an FTP file, open it and use its Download button'
+    : n > 1 ? 'Download works on one file at a time'
+    : 'Download ' + one.path.split('!/').pop().split('/').pop() + ' to this device';
+  // Send payload: one local .elf/.bin/.js/.lua/.jar to the console's own loader
+  // port, raw bytes, nothing installed. Shown only when the selection is exactly
+  // one such file, so it never crowds the tray otherwise.
+  const onePayload = !!one && !one.dir && !one.inArchive && !isFtpSrc(one.src) && isPayloadName(one.path);
+  $('sendPayload').hidden = !onePayload;
+  if (onePayload) {
+    $('sendPayload').textContent = p ? (narrow ? 'Payload' : 'Send payload to ' + p.name) : 'Send payload';
+    $('sendPayload').disabled = !p;
+    $('sendPayload').title = !p ? 'Add a console first' : `Send ${one.path.split('/').pop()} to ${p.name}'s payload loader`;
+  }
   // Open reads a text file in the app: one file, and one that looks like text by its extension.
   // Not offered at all over FTP in this pass — see ftp-spec.md — so this says why
   // rather than just doing nothing.
@@ -9253,6 +9275,42 @@ $('newFolderBtn').onclick = () => newFolder();
 $('link').onclick = copySelected;
 addEventListener('resize', () => { if (!sending) updateTray(); });
 $('send').onclick = sendSelected;
+// Download a single selected local file to this device: a plain anchor to
+// /api/download (the server answers with Content-Disposition: attachment), so
+// the browser's own download handling takes over.
+$('dlBtn').onclick = () => {
+  const all = [...selected.values()];
+  if (all.length !== 1) return;
+  const one = all[0];
+  if (one.dir || isFtpSrc(one.src)) return;
+  const a = el('a');
+  a.href = `api/download?src=${encodeURIComponent(one.src)}&path=${encodeURIComponent(one.path)}`;
+  a.download = one.path.split('!/').pop().split('/').pop() || 'download';
+  document.body.append(a); a.click(); a.remove();
+};
+// Send a single selected payload file (.elf/.bin/.js/.lua/.jar) straight to the
+// active console's loader port — the same POST the setup panel's payload picker
+// makes, but sourced from the explorer.
+$('sendPayload').onclick = async () => {
+  const all = [...selected.values()];
+  if (all.length !== 1) return;
+  const one = all[0];
+  const p = active();
+  if (!p) return;
+  const btn = $('sendPayload');
+  btn.disabled = true;
+  const orig = btn.textContent;
+  btn.textContent = 'Sending…';
+  try {
+    const r = await api('POST', 'api/payload', { profile: p.id, src: one.src, path: one.path });
+    showNote(r.ok ? r.message : (r.message || 'The console did not accept it.'), r.ok ? 'ok' : 'err');
+  } catch (e) {
+    showNote('Could not send the payload: ' + e.message, 'err');
+  }
+  btn.disabled = false;
+  btn.textContent = orig;
+  updateTray();
+};
 $('deleteBtn').onclick = deleteSelected;
 // Clear drops everything ticked, including what is ticked in folders that are not on the screen. The box that started the
 // selection (the header box) takes focus, since the tray, where the button was, goes away with the selection.
