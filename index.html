@@ -2510,7 +2510,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.0.9';
+const APP_VERSION = '1.0.10';
 $('appVer').textContent = 'v' + APP_VERSION;
 const ICON_DIR = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 const CHEV = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
@@ -4769,6 +4769,19 @@ function grouped(files) {
   for (const [id, members] of by) {
     if (members.length < 2) continue;
     members.sort(cmpMember);
+    // Two versions of the same package (one content id, several versions) are not
+    // a game + update + DLC set — keep them as separate rows so neither vanishes
+    // into a collapsed group. Copies (one id, one version) and sets (several ids)
+    // still group.
+    const verCount = new Map();
+    for (const f of members) {
+      const m = f.meta || {};
+      if (!m.contentId) continue;
+      const s = verCount.get(m.contentId) || new Set();
+      s.add(m.version || '');
+      verCount.set(m.contentId, s);
+    }
+    if (verCount.size === 1 && [...verCount.values()][0].size > 1) continue;
     for (const f of members) taken.add(f);
     // The game's name, not an add-on's. A base package has it; failing that the
     // shortest title is the one without " - Some Pack" tacked on the end.
