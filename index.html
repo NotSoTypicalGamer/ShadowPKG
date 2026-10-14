@@ -2335,6 +2335,17 @@
   </div>
 </dialog>
 
+<dialog id="payloadDlg">
+  <div class="dlg-head">
+    <h2>Send payload</h2>
+    <button class="ghost pb pb-o" id="payloadDlgCancel" type="button">Cancel</button>
+  </div>
+  <div class="dlg-body">
+    <div class="delnote" id="payloadDlgNote"></div>
+    <div class="panel" id="payloadDlgList"></div>
+  </div>
+</dialog>
+
 <dialog id="deleteDlg">
   <div class="dlg-head">
     <h2 id="deleteTitle">Delete packages</h2>
@@ -2511,7 +2522,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.0.12';
+const APP_VERSION = '1.0.13';
 $('appVer').textContent = 'v' + APP_VERSION;
 const ICON_DIR = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 const CHEV = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
@@ -6305,7 +6316,7 @@ function updateTray() {
   const rarSet = all.some(isRarSet);
   const oneSel = n === 1 ? all[0] : null;
   const onePayload = !!oneSel && !oneSel.dir && !oneSel.inArchive && !isFtpSrc(oneSel.src) && isPayloadName(oneSel.path);
-  $('send').textContent = p ? (narrow ? (onePayload ? 'Payload' : 'Send') : (onePayload ? 'Send payload to ' + p.name : 'Send to ' + p.name)) : (onePayload ? 'Send payload' : 'Send to PS5');
+  $('send').textContent = p ? (narrow ? 'Send' : 'Send to ' + p.name) : 'Send to PS5';
   $('send').disabled = !(pkgs || onePayload) || !p;
   $('send').title = !p ? 'Add a console first'
     : onePayload ? `Send ${oneSel.path.split('/').pop()} to ${p.name}'s payload loader`
@@ -6812,7 +6823,7 @@ function sendSelected() {
   // console's loader port — no install dialog, same as the setup panel's picker.
   const sel = [...selected.values()];
   if (sel.length === 1 && !sel[0].dir && !sel[0].inArchive && !isFtpSrc(sel[0].src) && isPayloadName(sel[0].path)) {
-    return sendPayloadFromExplorer(sel[0], p);
+    return openPayloadConsolePicker(sel[0]);
   }
   const picked = selectedPackages();         // only the packages in the selection are sent
   if (!picked.length) return;
@@ -9291,10 +9302,32 @@ $('dlBtn').onclick = () => {
   a.download = one.path.split('!/').pop().split('/').pop() || 'download';
   document.body.append(a); a.click(); a.remove();
 };
+// A payload file sent from the explorer asks which console to send it to: the
+// loader port is one console's raw-TCP listener, so it is a short pick, not the
+// package send dialog's multi-target list.
+function openPayloadConsolePicker(f) {
+  $('payloadDlgNote').textContent = `Sending the payload ${f.path.split('/').pop()} — it goes to the console's loader port as raw bytes and nothing is installed. Pick a console:`;
+  const box = $('payloadDlgList');
+  box.replaceChildren();
+  for (const pr of profiles) {
+    const b = el('button', null); b.type = 'button';
+    const dot = el('span', 'dot'); dot.className = 'dot ' + dotClass(pr);
+    b.append(dot);
+    const nm = el('span', 'stname', pr.name);
+    nm.append(el('small', null, pr.host));
+    b.append(nm);
+    b.onclick = () => { $('payloadDlg').close(); sendPayloadTo(f, pr); };
+    box.append(b);
+  }
+  if (!profiles.length) box.append(el('div', 'empty', 'No consoles yet — add one in Setup.'));
+  $('payloadDlg').showModal();
+}
+$('payloadDlgCancel').onclick = () => $('payloadDlg').close();
+closeOnBackdrop($('payloadDlg'));
+
 // Send one payload file (.elf/.bin/.js/.lua/.jar) straight to a console's loader
-// port — the same POST the setup panel's payload picker makes, but sourced from
-// the explorer's Send button.
-async function sendPayloadFromExplorer(f, p) {
+// port — the same POST the setup panel's payload picker makes.
+async function sendPayloadTo(f, p) {
   showNote(`Sending ${f.path.split('/').pop()} to ${p.name}…`, 'ok');
   try {
     const r = await api('POST', 'api/payload', { profile: p.id, src: f.src, path: f.path });
