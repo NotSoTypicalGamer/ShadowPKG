@@ -2360,6 +2360,21 @@
   </div>
 </dialog>
 
+<dialog id="zipDlg" aria-labelledby="zipTitle">
+  <div class="dlg-head">
+    <h2 id="zipTitle">Download as ZIP</h2>
+    <button class="ghost pb pb-o" id="zipCancel" type="button">Cancel</button>
+  </div>
+  <div class="dlg-body">
+    <div class="sendsum" id="zipSum"></div>
+    <label class="field">ZIP name
+      <input type="text" id="zipName" placeholder="shadowpkg" maxlength="120">
+    </label>
+    <div class="formerr" id="zipErr"></div>
+    <button class="pb pb-x" id="zipGo" type="button">Download</button>
+  </div>
+</dialog>
+
 <dialog id="deleteDlg">
   <div class="dlg-head">
     <h2 id="deleteTitle">Delete packages</h2>
@@ -2522,7 +2537,6 @@
       <button class="ghost pb pb-s" id="rename" type="button">Rename</button>
       <button class="ghost pb pb-t" id="copyBtn" type="button">Copy</button>
       <button class="ghost pb pb-t" id="moveBtn" type="button">Move</button>
-      <button class="ghost pb pb-t" id="zipBtn" type="button" hidden>Download as ZIP</button>
       <button class="ghost pb pb-t" id="buildSelBtn" type="button" hidden>Build</button>
       <button class="ghost pb pb-t" id="extractBtn" type="button" hidden>Extract</button>
       <button class="ghost pb pb-t" id="regionBtn" type="button" hidden>Change region…</button>
@@ -2536,7 +2550,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.0.16';
+const APP_VERSION = '1.0.17';
 $('appVer').textContent = 'v' + APP_VERSION;
 const ICON_DIR = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 const CHEV = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
@@ -6345,16 +6359,15 @@ function updateTray() {
   // Info is the one button for every kind: a package's own Info, or the file details of anything else (or the summary of several).
   $('infoBtn').disabled = n === 0;
   $('infoBtn').title = n === 0 ? 'Info (select something first)' : one ? 'Info about ' + one.path.split('!/').pop().split('/').pop() : `Info about the ${n.toLocaleString()} selected items`;
-  // Download: one local file (anything on disk or inside a stored archive), never
-  // a folder. FTP has its own download in the file details dialog, so this is
-  // local libraries only.
-  const oneFile = !!one && !one.dir && !isFtpSrc(one.src);
-  $('dlBtn').disabled = !oneFile;
-  $('dlBtn').title = n === 0 ? 'Select one file to download it to this device'
-    : one && one.dir ? 'Folders cannot be downloaded as one file'
-    : isFtpSrc(one.src) ? 'For an FTP file, open it and use its Download button'
-    : n > 1 ? 'Download works on one file at a time'
-    : 'Download ' + one.path.split('!/').pop().split('/').pop() + ' to this device';
+  // Download: the selected local files, straight to this device. One file goes
+  // as itself; several become a ZIP. Folders are left out (a folder download is
+  // a ZIP of everything inside, which is more than this button is for).
+  const selFiles = all.filter(f => !f.dir && !isFtpSrc(f.src));
+  $('dlBtn').disabled = !selFiles.length;
+  $('dlBtn').textContent = selFiles.length > 1 ? `Download ${selFiles.length}` : 'Download';
+  $('dlBtn').title = selFiles.length === 0 ? 'Select files to download them to this device'
+    : selFiles.length === 1 ? 'Download ' + selFiles[0].path.split('!/').pop().split('/').pop() + ' to this device'
+    : `Download ${selFiles.length} files as one ZIP`;
   // Open reads a text file in the app: one file, and one that looks like text by its extension.
   // Not offered at all over FTP in this pass — see ftp-spec.md — so this says why
   // rather than just doing nothing.
@@ -6390,11 +6403,6 @@ function updateTray() {
   $('copyBtn').title = n === 0 ? 'Select something to copy' : '';
   $('moveBtn').disabled = n === 0;
   $('moveBtn').title = n === 0 ? 'Select something to move' : '';
-  // Only on a console confirmed as zftpd: it builds the ZIP itself while it streams, so nothing is written there
-  // and ShadowPKG only ever relays the bytes. Hidden rather than disabled elsewhere, same as Build above.
-  const curSrc = currentSrc(), zftpdHere = isFtpSrc(curSrc) && !!(ftpDrives.get(curSrc) && ftpDrives.get(curSrc).present);
-  $('zipBtn').hidden = !zftpdHere;
-  if (zftpdHere) { $('zipBtn').disabled = n === 0; $('zipBtn').title = n === 0 ? 'Select something to download' : `Download the ${n === 1 ? 'selection' : n + ' selected items'} as one ZIP, built on the console itself`; }
   // Only shown at all once the selection actually has a dump folder in it —
   // there is nothing to build otherwise, and showing a permanently-disabled
   // button in the common case (no dumps selected) would just be clutter.
@@ -9303,18 +9311,20 @@ $('newFolderBtn').onclick = () => newFolder();
 $('link').onclick = copySelected;
 addEventListener('resize', () => { if (!sending) updateTray(); });
 $('send').onclick = sendSelected;
-// Download a single selected local file to this device: a plain anchor to
-// /api/download (the server answers with Content-Disposition: attachment), so
-// the browser's own download handling takes over.
+// Download the selected local files to this device: one file goes as itself
+// (an anchor to /api/download), several go as one ZIP (the name dialog below).
 $('dlBtn').onclick = () => {
-  const all = [...selected.values()];
-  if (all.length !== 1) return;
-  const one = all[0];
-  if (one.dir || isFtpSrc(one.src)) return;
-  const a = el('a');
-  a.href = `api/download?src=${encodeURIComponent(one.src)}&path=${encodeURIComponent(one.path)}`;
-  a.download = one.path.split('!/').pop().split('/').pop() || 'download';
-  document.body.append(a); a.click(); a.remove();
+  const files = [...selected.values()].filter(f => !f.dir && !isFtpSrc(f.src));
+  if (!files.length) return;
+  if (files.length === 1) {
+    const one = files[0];
+    const a = el('a');
+    a.href = `api/download?src=${encodeURIComponent(one.src)}&path=${encodeURIComponent(one.path)}`;
+    a.download = one.path.split('!/').pop().split('/').pop() || 'download';
+    document.body.append(a); a.click(); a.remove();
+  } else {
+    openZipDialog(files);
+  }
 };
 // A payload file sent from the explorer picks its console(s) the same way the
 // package send dialog does: tick one or more, then the Send button below fires
@@ -10211,13 +10221,45 @@ function openXferDialog(kind) {
 }
 $('copyBtn').onclick = () => openXferDialog('copy');
 $('moveBtn').onclick = () => openXferDialog('move');
-$('zipBtn').onclick = () => {
-  const items = [...selected.values()];
-  if (!items.length) return;
-  const src = currentSrc();
-  const qs = items.map(f => 'path=' + encodeURIComponent(f.path)).join('&');
-  const name = items.length === 1 ? (items[0].name || items[0].path.split('/').pop()) + '.zip' : 'zftpd.zip';
-  window.open(`api/ftp/zip?src=${encodeURIComponent(src)}&${qs}&name=${encodeURIComponent(name)}`, '_blank');
+// Several selected files download as one ZIP, named here. POST /api/zip streams
+// the ZIP back; the fetch->blob dance turns that into the browser's own
+// download rather than leaving a JSON/error page behind.
+let zipItems = [];
+function openZipDialog(files) {
+  zipItems = files;
+  $('zipSum').textContent = `${plural(files.length, 'file', 'files')} · ${fmtSize(files.reduce((s, f) => s + (f.size || 0), 0))}`;
+  $('zipName').value = 'shadowpkg';
+  $('zipErr').textContent = '';
+  $('zipGo').disabled = false;
+  $('zipDlg').showModal();
+}
+$('zipCancel').onclick = () => $('zipDlg').close();
+closeOnBackdrop($('zipDlg'));
+$('zipGo').onclick = async () => {
+  const name = $('zipName').value.trim().replace(/\.zip$/i, '');
+  if (!name) { $('zipErr').textContent = 'Give the ZIP a name'; return; }
+  $('zipGo').disabled = true;
+  const items = zipItems;
+  $('zipDlg').close();
+  try {
+    const r = await fetch('api/zip', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, items: items.map(f => ({ src: f.src, path: f.path })) }),
+    });
+    if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || `HTTP ${r.status}`); }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = el('a');
+    a.href = url;
+    a.download = name + '.zip';
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    showNote(`Downloading ${name}.zip (${fmtSize(blob.size)}).`, 'ok');
+  } catch (e) {
+    showNote('Could not build the ZIP: ' + e.message, 'err');
+  }
+  $('zipGo').disabled = false;
 };
 $('xferCancel').onclick = () => $('xferDlg').close();
 closeOnBackdrop($('xferDlg'));

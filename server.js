@@ -7730,6 +7730,115 @@ function segmentStream(segments, start, end, res, onData) {
   return { destroy() { cancelled = true; if (current) current.destroy(); }, get bytesRead() { return sent; } };
 }
 
+// ---- ZIP writing (STORE method, no compression) ---------------------------
+// A download-to-device ZIP is built here, not on the console: the files are
+// already local, so each is read once for its CRC-32 and once for the stream.
+// Entries are stored uncompressed — a package is already compressed, and
+// re-compressing it would just burn CPU for nothing.
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(buf, crc = 0) {
+  let c = (crc ^ 0xFFFFFFFF) >>> 0;
+  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+function zipDateTime(mtime) {
+  const d = mtime ? new Date(mtime) : new Date();
+  return {
+    time: (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1),
+    date: (((d.getFullYear() - 1980) & 0x7F) << 9) | ((d.getMonth() + 1) << 5) | d.getDate(),
+  };
+}
+function zipLocalHeader(nameBuf, crc, size, mtime) {
+  const dt = zipDateTime(mtime);
+  const h = Buffer.alloc(30);
+  h.writeUInt32LE(0x04034b50, 0);
+  h.writeUInt16LE(20, 4);              // version needed to extract
+  h.writeUInt16LE(0x0800, 6);          // flags: UTF-8 filename
+  h.writeUInt16LE(0, 8);               // method: store
+  h.writeUInt16LE(dt.time, 10);
+  h.writeUInt16LE(dt.date, 12);
+  h.writeUInt32LE(crc >>> 0, 14);
+  h.writeUInt32LE(size, 18);           // compressed size (store = raw)
+  h.writeUInt32LE(size, 22);           // uncompressed size
+  h.writeUInt16LE(nameBuf.length, 26);
+  h.writeUInt16LE(0, 28);              // extra field length
+  return Buffer.concat([h, nameBuf]);
+}
+function zipCentralEntry(nameBuf, crc, size, mtime, offset) {
+  const dt = zipDateTime(mtime);
+  const h = Buffer.alloc(46);
+  h.writeUInt32LE(0x02014b50, 0);
+  h.writeUInt16LE(0x031E, 4);          // version made by (unix, 3.0)
+  h.writeUInt16LE(20, 6);              // version needed
+  h.writeUInt16LE(0x0800, 8);          // flags
+  h.writeUInt16LE(0, 10);              // method: store
+  h.writeUInt16LE(dt.time, 12);
+  h.writeUInt16LE(dt.date, 14);
+  h.writeUInt32LE(crc >>> 0, 16);
+  h.writeUInt32LE(size, 20);
+  h.writeUInt32LE(size, 24);
+  h.writeUInt16LE(nameBuf.length, 28);
+  h.writeUInt16LE(0, 30);              // extra
+  h.writeUInt16LE(0, 32);              // comment
+  h.writeUInt16LE(0, 34);              // disk number start
+  h.writeUInt16LE(0, 36);              // internal attrs
+  h.writeUInt32LE(0, 38);              // external attrs
+  h.writeUInt32LE(offset, 42);         // local header offset
+  return Buffer.concat([h, nameBuf]);
+}
+function zipEocd(entryCount, centralSize, centralOffset) {
+  const h = Buffer.alloc(22);
+  h.writeUInt32LE(0x06054b50, 0);
+  h.writeUInt16LE(0, 4);
+  h.writeUInt16LE(0, 6);
+  h.writeUInt16LE(entryCount, 8);
+  h.writeUInt16LE(entryCount, 10);
+  h.writeUInt32LE(centralSize, 12);
+  h.writeUInt32LE(centralOffset, 16);
+  h.writeUInt16LE(0, 20);              // comment length
+  return h;
+}
+async function fileCrc(full, base, size) {
+  if (size === 0) return 0;
+  let crc = 0;
+  await new Promise((resolve, reject) => {
+    const s = fs.createReadStream(full, { start: base, end: base + size - 1, highWaterMark: 1024 * 1024 });
+    s.on('data', c => { crc = crc32(c, crc); });
+    s.on('error', reject);
+    s.on('end', resolve);
+  });
+  return crc;
+}
+async function streamZip(res, entries) {
+  // entries: [{name, full, base, size, mtime, crc}] — crc already computed
+  const central = [];
+  let offset = 0;
+  for (const e of entries) {
+    const nameBuf = Buffer.from(e.name, 'utf8');
+    const local = zipLocalHeader(nameBuf, e.crc, e.size, e.mtime);
+    res.write(local);
+    await new Promise((resolve, reject) => {
+      const s = fs.createReadStream(e.full, { start: e.base, end: e.base + e.size - 1, highWaterMark: 1024 * 1024 });
+      s.on('data', c => res.write(c));
+      s.on('error', reject);
+      s.on('end', resolve);
+    });
+    central.push(zipCentralEntry(nameBuf, e.crc, e.size, e.mtime, offset));
+    offset += local.length + e.size;
+  }
+  const centralBuf = Buffer.concat(central);
+  res.write(centralBuf);
+  res.end(zipEocd(entries.length, centralBuf.length, offset));
+}
+
 async function serveFile(req, res, src, rel) {
   const from = (req.socket.remoteAddress || '').replace(/^::ffff:/, '');
   const t = src ? await resolveTarget(src, rel) : { error: 'forbidden' };
@@ -12411,6 +12520,48 @@ const server = http.createServer(async (req, res) => {
         stream.on('error', e => { console.error(`download read error ${rel}: ${e.message}`); res.destroy(); });
       }
       stream.pipe(res);
+      return;
+    }
+
+    // Download several selected files to the person's browser as one ZIP, built
+    // here (not on the console). The list and name come in the JSON body; the
+    // reply is the ZIP stream itself with Content-Disposition: attachment.
+    if (req.method === 'POST' && p === '/api/zip') {
+      let body;
+      try { body = parseJsonObject(await readBody(req)); } catch (e) { return sendJson(res, 400, { error: e && e.notObject ? 'expected a JSON object' : 'invalid JSON' }); }
+      const items = Array.isArray(body.items) ? body.items : [];
+      if (!items.length) return sendJson(res, 400, { error: 'no files were asked for' });
+      const name = String(body.name || 'download').replace(/["\\]/g, '_').replace(/\.zip$/i, '');
+      const entries = [];
+      for (const it of items) {
+        const src = findSource(it && it.src);
+        if (!src) return sendJson(res, 404, { error: 'library not found' });
+        const rel = String((it && it.path) || '');
+        if (!rel) continue;
+        if (rel.indexOf(ARC) < 0) {
+          // Any plain file in the library, whatever the extension.
+          const full = safeDir(src.root, rel);
+          if (!full) return sendJson(res, 403, { error: 'a file is outside the library' });
+          let st;
+          try { st = await fsp.stat(full); } catch { return sendJson(res, 404, { error: 'file not found: ' + rel }); }
+          if (!st.isFile()) return sendJson(res, 404, { error: 'file not found: ' + rel });
+          entries.push({ name: rel.split('/').pop() || 'file', full, base: 0, size: st.size, mtime: st.mtime, crc: 0 });
+        } else {
+          const t = await resolveTarget(src, rel);
+          if (t.error === 'forbidden') return sendJson(res, 403, { error: 'a file is outside the library' });
+          if (t.error) return sendJson(res, 404, { error: 'file not found: ' + rel });
+          if (t.segments) return sendJson(res, 400, { error: 'a package inside an archive cannot be zipped directly — extract it first' });
+          entries.push({ name: rel.split('/').pop() || 'file', full: t.full, base: t.base || 0, size: t.size, mtime: t.mtime, crc: 0 });
+        }
+      }
+      if (!entries.length) return sendJson(res, 400, { error: 'no files to zip' });
+      try { for (const e of entries) e.crc = await fileCrc(e.full, e.base, e.size); }
+      catch (e) { return sendJson(res, 500, { error: 'could not read a file: ' + e.message }); }
+      res.writeHead(200, {
+        'Content-Type': 'application/zip',
+        'Content-Disposition': `attachment; filename="${name}.zip"`,
+      });
+      try { await streamZip(res, entries); } catch (e) { console.error(`zip stream error: ${e.message}`); res.destroy(); }
       return;
     }
 
