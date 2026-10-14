@@ -3088,6 +3088,13 @@ const CONTENT_ID = /\b[A-Z]{2}\d{4}-[A-Z]{4}\d{5}_\d{2}-[A-Z0-9]{16}/;
 // app talks to can use, since a file name is not a content id and four letters
 // followed by five digits turns up in release names by accident.
 const NAME_TITLE_ID = /\b(?:CUSA|PPSA)\d{5}/;
+// A backport re-signs the package, so the header magic can't be read — but the
+// title id in the name still says which console it is: PPSA… is PS5, CUSA… PS4.
+function platformFromName(name) {
+  const m = NAME_TITLE_ID.exec(String(name || '').toUpperCase());
+  if (!m) return null;
+  return m[0].startsWith('PPSA') ? 'PS5' : 'PS4';
+}
 
 // Firmware versions are packed as hex digits: 0x09508000 is 9.50.
 function firmwareOf(v) {
@@ -3196,7 +3203,7 @@ function ps5KindOf(cnt, param) {
 // — but that came from the name, not the package, so it says so.
 function metaOf(r, rel) {
   const m = r.sfo ? metaFromSfo(r.sfo) : r.param ? metaFromParam(r.param) : {};
-  m.platform = r.platform || null;
+  m.platform = r.platform || platformFromName(rel);
   if (r.ps5) { const k = ps5KindOf(r.ps5, r.param); if (k) m.kind = k; }
   if (!m.contentId && r.contentId) { m.contentId = r.contentId; m.idFrom = 'header'; }
   if (!m.contentId) {
@@ -5915,6 +5922,7 @@ async function sendLibraryFileNow(prof, src, rel, base, fromHeld, hooks, askedAt
   const preflight = await preflightCheck(t);
   let platform = null;
   try { const h = await readPkgRange(t, 0, 4); if (h.length === 4) platform = PLATFORMS[h.readUInt32BE(0)] || null; } catch {}
+  if (!platform) platform = platformFromName(rel);
   const pkgUrl = base + cleanPkgPath(src, rel);
   // For an installer that is an app, "sent" means it has begun downloading, which
   // is when the app can be left; for the others it means the file has arrived.
