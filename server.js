@@ -2969,7 +2969,9 @@ async function preflightCheck(t) {
   // the console's installer decides whether it can use it. Platform is detected
   // separately (left null here) for the driver check in attemptInstall.
   if (await stillWriting(t)) return 'the file is still being written — wait for it to finish';
-  if (await badTail(t)) return 'the file looks truncated — its last few KB are all zero';
+  // No zero-tail check here: a legitimately zero-padded package (re-signed, backported)
+  // reads the same as a truncated one, and the console reports its own error if the
+  // file is genuinely incomplete. stillWriting catches the actively-writing case.
   return null;
 }
 
