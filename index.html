@@ -2335,14 +2335,14 @@
   </div>
 </dialog>
 
-<dialog id="payloadDlg">
+<dialog id="payloadConsoleDlg">
   <div class="dlg-head">
     <h2>Send payload</h2>
-    <button class="ghost pb pb-o" id="payloadDlgCancel" type="button">Cancel</button>
+    <button class="ghost pb pb-o" id="payloadConsoleCancel" type="button">Cancel</button>
   </div>
   <div class="dlg-body">
-    <div class="delnote" id="payloadDlgNote"></div>
-    <div class="panel" id="payloadDlgList"></div>
+    <div class="delnote" id="payloadConsoleNote"></div>
+    <div class="panel" id="payloadConsoleList"></div>
   </div>
 </dialog>
 
@@ -2522,7 +2522,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.0.13';
+const APP_VERSION = '1.0.14';
 $('appVer').textContent = 'v' + APP_VERSION;
 const ICON_DIR = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 const CHEV = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
@@ -9306,8 +9306,8 @@ $('dlBtn').onclick = () => {
 // loader port is one console's raw-TCP listener, so it is a short pick, not the
 // package send dialog's multi-target list.
 function openPayloadConsolePicker(f) {
-  $('payloadDlgNote').textContent = `Sending the payload ${f.path.split('/').pop()} — it goes to the console's loader port as raw bytes and nothing is installed. Pick a console:`;
-  const box = $('payloadDlgList');
+  $('payloadConsoleNote').textContent = `Sending the payload ${f.path.split('/').pop()} — it goes to the console's loader port as raw bytes and nothing is installed. Pick a console:`;
+  const box = $('payloadConsoleList');
   box.replaceChildren();
   for (const pr of profiles) {
     const b = el('button', null); b.type = 'button';
@@ -9316,14 +9316,14 @@ function openPayloadConsolePicker(f) {
     const nm = el('span', 'stname', pr.name);
     nm.append(el('small', null, pr.host));
     b.append(nm);
-    b.onclick = () => { $('payloadDlg').close(); sendPayloadTo(f, pr); };
+    b.onclick = () => { $('payloadConsoleDlg').close(); sendPayloadTo(f, pr); };
     box.append(b);
   }
   if (!profiles.length) box.append(el('div', 'empty', 'No consoles yet — add one in Setup.'));
-  $('payloadDlg').showModal();
+  $('payloadConsoleDlg').showModal();
 }
-$('payloadDlgCancel').onclick = () => $('payloadDlg').close();
-closeOnBackdrop($('payloadDlg'));
+$('payloadConsoleCancel').onclick = () => $('payloadConsoleDlg').close();
+closeOnBackdrop($('payloadConsoleDlg'));
 
 // Send one payload file (.elf/.bin/.js/.lua/.jar) straight to a console's loader
 // port — the same POST the setup panel's payload picker makes.
