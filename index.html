@@ -2510,7 +2510,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.0.5';
+const APP_VERSION = '1.0.6';
 $('appVer').textContent = 'v' + APP_VERSION;
 const ICON_DIR = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 const CHEV = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
@@ -6812,9 +6812,9 @@ function sendSelected() {
   $('sendDlg').showModal();
 }
 
-// A send target is either a console's normal DPI id, or — new, additive —
-// `ftp:<profile id>` for sending straight to its FTP-connected console instead
-// (via /api/ftp/upload; see doSendFtp). Both can be picked in the same batch.
+// A send target is a console's DPI id (install). FTP "drop in a folder" is the
+// Move/Copy flow (which offers FTP consoles as destinations), not the send
+// dialog — the send dialog installs packages, so it offers DPI only.
 function renderSendTargetList() {
   const box = $('sendTargetList');
   box.replaceChildren();
@@ -6836,12 +6836,6 @@ function renderSendTargetList() {
   for (const pr of profiles) {
     const b = row(pr.id, pr.name, pr.host, sendTargetIds.has(pr.id));
     b.querySelector('.dot').className = 'dot ' + dotClass(pr);
-    if (pr.ftpHost) {
-      // No health check of its own over FTP (unlike DPI's online[] status) —
-      // the dot is left plain rather than implying a check that isn't made.
-      row(ftpSourceId(pr.id), pr.name, `FTP · ${pr.ftpHost}:${pr.ftpPort || 2121}`, sendTargetIds.has(ftpSourceId(pr.id)))
-        .querySelector('.stname').prepend(ftpChip(ftpSourceId(pr.id)));
-    }
   }
   updateSendSummary();
 }
