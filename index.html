@@ -913,6 +913,15 @@
   #sendTargetList .stname { flex: 1; min-width: 0; }
   #sendTargetList small { display: block; font-weight: 400; }
   #sendTargetList .ck { width: 16px; font-weight: 700; flex: none; }
+  /* Explorer payload picker: the same row look as the send-target list, but a
+     single pick (click sends) with no checkbox column. */
+  #payloadConsoleList { max-height: 30vh; overflow-y: auto; }
+  #payloadConsoleList button { display: flex; width: 100%; align-items: center; justify-content: flex-start; gap: 10px; padding: 10px 12px; background: transparent; color: inherit; border-radius: 0; font-weight: 500; text-align: left; }
+  #payloadConsoleList button:hover { background: var(--hover); }
+  #payloadConsoleList button + button { border-top: 1px solid var(--line); }
+  #payloadConsoleList .dot { flex: none; }
+  #payloadConsoleList .stname { flex: 1; min-width: 0; }
+  #payloadConsoleList small { display: block; font-weight: 400; }
   #sendList, #deleteList, #leftList, #archList { max-height: 40vh; overflow-y: auto; margin-bottom: 14px; }
 
   /* Copy/Move destination picker: a library-or-console list, then a folder-only
@@ -2335,14 +2344,17 @@
   </div>
 </dialog>
 
-<dialog id="payloadConsoleDlg">
+<dialog id="payloadConsoleDlg" aria-labelledby="payloadConsoleTitle">
   <div class="dlg-head">
-    <h2>Send payload</h2>
+    <h2 id="payloadConsoleTitle">Send payload</h2>
     <button class="ghost pb pb-o" id="payloadConsoleCancel" type="button">Cancel</button>
   </div>
   <div class="dlg-body">
-    <div class="delnote" id="payloadConsoleNote"></div>
-    <div class="panel" id="payloadConsoleList"></div>
+    <div class="sendsum" id="payloadConsoleSum"></div>
+    <div class="delnote">A payload is put on the console's own loader port as raw bytes — nothing is installed, and the console is not otherwise changed.</div>
+    <div class="field">Send to
+      <div class="panel" id="payloadConsoleList"></div>
+    </div>
   </div>
 </dialog>
 
@@ -2522,7 +2534,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.0.14';
+const APP_VERSION = '1.0.15';
 $('appVer').textContent = 'v' + APP_VERSION;
 const ICON_DIR = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 const CHEV = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
@@ -9306,7 +9318,7 @@ $('dlBtn').onclick = () => {
 // loader port is one console's raw-TCP listener, so it is a short pick, not the
 // package send dialog's multi-target list.
 function openPayloadConsolePicker(f) {
-  $('payloadConsoleNote').textContent = `Sending the payload ${f.path.split('/').pop()} — it goes to the console's loader port as raw bytes and nothing is installed. Pick a console:`;
+  $('payloadConsoleSum').textContent = `${f.path.split('/').pop()} · ${fmtSize(f.size || 0)}`;
   const box = $('payloadConsoleList');
   box.replaceChildren();
   for (const pr of profiles) {
@@ -9314,8 +9326,9 @@ function openPayloadConsolePicker(f) {
     const dot = el('span', 'dot'); dot.className = 'dot ' + dotClass(pr);
     b.append(dot);
     const nm = el('span', 'stname', pr.name);
-    nm.append(el('small', null, pr.host));
+    nm.append(el('small', null, `${pr.host} · loader port ${pr.payloadPort || 9021}`));
     b.append(nm);
+    b.insertAdjacentHTML('beforeend', CHEV);
     b.onclick = () => { $('payloadConsoleDlg').close(); sendPayloadTo(f, pr); };
     box.append(b);
   }
