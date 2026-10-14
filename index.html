@@ -2504,7 +2504,6 @@
       <button class="ghost pb pb-t" id="ignoreAttnBtn" type="button" hidden>Ignore</button>
       <button class="ghost pb pb-t" id="dlBtn" type="button">Download</button>
       <button class="ghost pb pb-t" id="link" type="button">Copy link</button>
-      <button class="ghost pb pb-t" id="sendPayload" type="button" hidden>Send payload</button>
       <button class="pb pb-x" id="send" type="button">Send to PS5</button>
     </div>
   </div>
@@ -2512,7 +2511,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.0.11';
+const APP_VERSION = '1.0.12';
 $('appVer').textContent = 'v' + APP_VERSION;
 const ICON_DIR = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 const CHEV = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
@@ -6300,11 +6299,18 @@ function updateTray() {
   }
   $('clearSel').disabled = n === 0;
   const narrow = matchMedia('(max-width: 560px)').matches;
-  // Send and Copy link work on the packages in the selection only.
+  // Send and Copy link work on the packages in the selection only — with one
+  // exception: a single payload file (.elf/.bin/.js/.lua/.jar) goes by the same
+  // Send button, but to the console's loader port rather than the installer.
   const rarSet = all.some(isRarSet);
-  $('send').textContent = p ? (narrow ? 'Send' : 'Send to ' + p.name) : 'Send to PS5';
-  $('send').disabled = !pkgs || !p;
-  $('send').title = !pkgs ? 'Only packages can be sent' + (rarSet ? ': a .rar set is served through the packages inside it' : '') : others ? `Sends the ${plural(pkgs, 'package', 'packages')} only; the other ${others === 1 ? 'item is' : others + ' items are'} not sent` : '';
+  const oneSel = n === 1 ? all[0] : null;
+  const onePayload = !!oneSel && !oneSel.dir && !oneSel.inArchive && !isFtpSrc(oneSel.src) && isPayloadName(oneSel.path);
+  $('send').textContent = p ? (narrow ? (onePayload ? 'Payload' : 'Send') : (onePayload ? 'Send payload to ' + p.name : 'Send to ' + p.name)) : (onePayload ? 'Send payload' : 'Send to PS5');
+  $('send').disabled = !(pkgs || onePayload) || !p;
+  $('send').title = !p ? 'Add a console first'
+    : onePayload ? `Send ${oneSel.path.split('/').pop()} to ${p.name}'s payload loader`
+    : !pkgs ? 'Only packages can be sent' + (rarSet ? ': a .rar set is served through the packages inside it' : '')
+    : others ? `Sends the ${plural(pkgs, 'package', 'packages')} only; the other ${others === 1 ? 'item is' : others + ' items are'} not sent` : '';
   $('link').textContent = narrow ? 'Link' : (pkgs > 1 ? 'Copy links' : 'Copy link');
   $('link').disabled = !pkgs;
   $('link').title = !pkgs ? 'Only packages have a link' : others ? `Copies the link of the ${plural(pkgs, 'package', 'packages')} only; the other ${others === 1 ? 'item has' : others + ' items have'} none` : '';
@@ -6324,16 +6330,6 @@ function updateTray() {
     : isFtpSrc(one.src) ? 'For an FTP file, open it and use its Download button'
     : n > 1 ? 'Download works on one file at a time'
     : 'Download ' + one.path.split('!/').pop().split('/').pop() + ' to this device';
-  // Send payload: one local .elf/.bin/.js/.lua/.jar to the console's own loader
-  // port, raw bytes, nothing installed. Shown only when the selection is exactly
-  // one such file, so it never crowds the tray otherwise.
-  const onePayload = !!one && !one.dir && !one.inArchive && !isFtpSrc(one.src) && isPayloadName(one.path);
-  $('sendPayload').hidden = !onePayload;
-  if (onePayload) {
-    $('sendPayload').textContent = p ? (narrow ? 'Payload' : 'Send payload to ' + p.name) : 'Send payload';
-    $('sendPayload').disabled = !p;
-    $('sendPayload').title = !p ? 'Add a console first' : `Send ${one.path.split('/').pop()} to ${p.name}'s payload loader`;
-  }
   // Open reads a text file in the app: one file, and one that looks like text by its extension.
   // Not offered at all over FTP in this pass — see ftp-spec.md — so this says why
   // rather than just doing nothing.
@@ -6811,8 +6807,15 @@ function unfinishedSend(f) {
 
 function sendSelected() {
   const p = active();
+  if (!p) return;
+  // A single payload file (.elf/.bin/.js/.lua/.jar) goes straight to the
+  // console's loader port — no install dialog, same as the setup panel's picker.
+  const sel = [...selected.values()];
+  if (sel.length === 1 && !sel[0].dir && !sel[0].inArchive && !isFtpSrc(sel[0].src) && isPayloadName(sel[0].path)) {
+    return sendPayloadFromExplorer(sel[0], p);
+  }
   const picked = selectedPackages();         // only the packages in the selection are sent
-  if (!picked.length || !p) return;
+  if (!picked.length) return;
   const ord = installOrder(picked);
   const items = ord.items;
   pending = { items, skip: repeatsOf(items), others: selected.size - picked.length };
@@ -9288,29 +9291,18 @@ $('dlBtn').onclick = () => {
   a.download = one.path.split('!/').pop().split('/').pop() || 'download';
   document.body.append(a); a.click(); a.remove();
 };
-// Send a single selected payload file (.elf/.bin/.js/.lua/.jar) straight to the
-// active console's loader port — the same POST the setup panel's payload picker
-// makes, but sourced from the explorer.
-$('sendPayload').onclick = async () => {
-  const all = [...selected.values()];
-  if (all.length !== 1) return;
-  const one = all[0];
-  const p = active();
-  if (!p) return;
-  const btn = $('sendPayload');
-  btn.disabled = true;
-  const orig = btn.textContent;
-  btn.textContent = 'Sending…';
+// Send one payload file (.elf/.bin/.js/.lua/.jar) straight to a console's loader
+// port — the same POST the setup panel's payload picker makes, but sourced from
+// the explorer's Send button.
+async function sendPayloadFromExplorer(f, p) {
+  showNote(`Sending ${f.path.split('/').pop()} to ${p.name}…`, 'ok');
   try {
-    const r = await api('POST', 'api/payload', { profile: p.id, src: one.src, path: one.path });
+    const r = await api('POST', 'api/payload', { profile: p.id, src: f.src, path: f.path });
     showNote(r.ok ? r.message : (r.message || 'The console did not accept it.'), r.ok ? 'ok' : 'err');
   } catch (e) {
     showNote('Could not send the payload: ' + e.message, 'err');
   }
-  btn.disabled = false;
-  btn.textContent = orig;
-  updateTray();
-};
+}
 $('deleteBtn').onclick = deleteSelected;
 // Clear drops everything ticked, including what is ticked in folders that are not on the screen. The box that started the
 // selection (the header box) takes focus, since the tray, where the button was, goes away with the selection.
