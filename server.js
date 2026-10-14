@@ -2965,8 +2965,9 @@ async function stillWriting(t) {
 // to show instead of ever contacting the console.
 async function preflightCheck(t) {
   if (t.size < 0x100) return 'the file is too small to be a real package';
-  const head = await readPkgRange(t, 0, 4);
-  if (head.length < 4 || !PLATFORMS[head.readUInt32BE(0)]) return "the file's header is not a package ShadowPKG recognises";
+  // A .pkg whose header magic isn't one of the three recognised is still sent —
+  // the console's installer decides whether it can use it. Platform is detected
+  // separately (left null here) for the driver check in attemptInstall.
   if (await stillWriting(t)) return 'the file is still being written — wait for it to finish';
   if (await badTail(t)) return 'the file looks truncated — its last few KB are all zero';
   return null;
