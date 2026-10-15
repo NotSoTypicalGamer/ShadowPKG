@@ -833,6 +833,11 @@
   .edit .actions .spacer { flex: 1; }
   .field { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
   .field[hidden] { display: none; }
+  /* Copy/Move mode switch inside the transfer dialog: a two-way segmented control. */
+  .xfermode { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; margin-bottom: 10px; }
+  .xfermode button { padding: 8px 16px; background: var(--panel); color: var(--panel-text); border: none; font: inherit; font-weight: 600; cursor: pointer; }
+  .xfermode button + button { border-left: 1px solid var(--line); }
+  .xfermode button.on { background: var(--sel); color: var(--sel-text); }
   /* Naming a package from its own details: what the package says, the formats on offer each shown with
      the name it gives for this package, and a few options. */
   .fmtbox { margin: 16px 0 0; }
@@ -2295,6 +2300,10 @@
   </div>
   <div class="dlg-body">
     <div class="sendsum" id="xferSum"></div>
+    <div class="xfermode" id="xferMode" role="group" aria-label="Copy or move">
+      <button type="button" data-kind="copy" class="on">Copy</button>
+      <button type="button" data-kind="move">Move</button>
+    </div>
     <div class="panel" id="xferItems"></div>
 
     <div class="field">Destination
@@ -2535,8 +2544,7 @@
       <button class="ghost pb pb-sel" id="infoBtn" type="button">Info</button>
       <button class="ghost pb pb-sel" id="openBtn" type="button">Open</button>
       <button class="ghost pb pb-s" id="rename" type="button">Rename</button>
-      <button class="ghost pb pb-t" id="copyBtn" type="button">Copy</button>
-      <button class="ghost pb pb-t" id="moveBtn" type="button">Move</button>
+      <button class="ghost pb pb-t" id="xferBtn" type="button">Copy / Move</button>
       <button class="ghost pb pb-t" id="buildSelBtn" type="button" hidden>Build</button>
       <button class="ghost pb pb-t" id="extractBtn" type="button" hidden>Extract</button>
       <button class="ghost pb pb-t" id="regionBtn" type="button" hidden>Change region…</button>
@@ -2550,7 +2558,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.0.17';
+const APP_VERSION = '1.0.18';
 $('appVer').textContent = 'v' + APP_VERSION;
 const ICON_DIR = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 const CHEV = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
@@ -6399,10 +6407,8 @@ function updateTray() {
   // the same scope Delete/Rename already support (no rar-set restriction: a
   // plain file copy, unlike delete, has no "served from inside the archive"
   // subtlety to worry about).
-  $('copyBtn').disabled = n === 0;
-  $('copyBtn').title = n === 0 ? 'Select something to copy' : '';
-  $('moveBtn').disabled = n === 0;
-  $('moveBtn').title = n === 0 ? 'Select something to move' : '';
+  $('xferBtn').disabled = n === 0;
+  $('xferBtn').title = n === 0 ? 'Select something to copy or move' : '';
   // Only shown at all once the selection actually has a dump folder in it —
   // there is nothing to build otherwise, and showing a permanently-disabled
   // button in the common case (no dumps selected) would just be clutter.
@@ -10196,15 +10202,23 @@ function rememberXferDest(srcId, destSrc, path) {
   store.set(xferDestKey(srcId), JSON.stringify({ id: destSrc.id, path }));
 }
 
-function openXferDialog(kind) {
+function setXferKind(kind) {
+  xferKind = kind;
+  for (const b of $('xferMode').querySelectorAll('button')) b.classList.toggle('on', b.dataset.kind === kind);
+  $('xferTitle').textContent = kind === 'move' ? 'Move' : 'Copy';
+  $('xferGo').textContent = kind === 'move' ? 'Move' : 'Copy';
+  refreshXferMoveNote();
+  refreshXferGo();
+}
+
+function openXferDialog() {
   const items = [...selected.values()];
   if (!items.length) return;
-  xferKind = kind; xferItems = items;
+  xferItems = items;
   xferDestSrc = null; xferDestPath = ''; xferPreview = null; xferBrowseBusy = false;
   $('xferErr').textContent = ''; $('xferBrowseErr').textContent = '';
   $('xferOverwrite').value = 'skip'; $('xferVerify').checked = false; $('xferMoveUndo').checked = false;
-  $('xferTitle').textContent = kind === 'move' ? 'Move' : 'Copy';
-  $('xferGo').textContent = kind === 'move' ? 'Move' : 'Copy';
+  setXferKind('copy');
   renderXferItems();
   const remembered = loadRememberedXferDest(currentSrc());
   const rememberedSrc = remembered && sources.find(s => s.id === remembered.id);
@@ -10219,8 +10233,8 @@ function openXferDialog(kind) {
   $('xferDlg').showModal();
   if (items.some(f => f.dir)) loadXferPreview(items);
 }
-$('copyBtn').onclick = () => openXferDialog('copy');
-$('moveBtn').onclick = () => openXferDialog('move');
+$('xferBtn').onclick = () => openXferDialog();
+for (const b of $('xferMode').querySelectorAll('button')) b.onclick = () => setXferKind(b.dataset.kind);
 // Several selected files download as one ZIP, named here. POST /api/zip streams
 // the ZIP back; the fetch->blob dance turns that into the browser's own
 // download rather than leaving a JSON/error page behind.
