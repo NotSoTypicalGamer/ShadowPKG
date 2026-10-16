@@ -2558,7 +2558,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.0.20';
+const APP_VERSION = '1.0.21';
 $('appVer').textContent = 'v' + APP_VERSION;
 const ICON_DIR = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 const CHEV = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
@@ -10783,6 +10783,10 @@ Send it again anyway?`)) return;
 // screen. Any filter change starts over at the top instead (historyOffset
 // counts rows matching the *current* filters, not history as a whole).
 let historyOffset = 0, historyLoading = false;
+// A successful send already shows "downloaded in …" on its own row, so the
+// separate "Downloaded" entry for that same file + console is folded away. Keys
+// accumulate across pages, so a download that precedes its send still collapses.
+const doneSendKeys = new Set();
 
 async function loadHistoryPage(reset) {
   if (historyLoading) return;
@@ -10800,7 +10804,14 @@ async function loadHistoryPage(reset) {
   if (reset && !rows.length) {
     $('historyList').append(el('div', 'empty', (q || type || ps5) ? 'Nothing matches that filter.' : 'Nothing here yet — it fills in as downloads and extractions finish.'));
   }
-  for (const h of rows) $('historyList').append(historyRow(h));
+  // First pass: remember sends that finished downloading, so the matching
+  // "Downloaded" row can be left out. Skipped when the view is filtered to
+  // downloads only — there, every download is exactly what was asked for.
+  if (type !== 'download') for (const h of rows) if (h.type === 'send' && h.outcome === 'done') doneSendKeys.add(h.src + '\n' + h.path + '\n' + (h.ps5 || ''));
+  for (const h of rows) {
+    if (type !== 'download' && h.type === 'download' && h.status === 'done' && doneSendKeys.has(h.src + '\n' + h.path + '\n' + (h.ps5 || ''))) continue;
+    $('historyList').append(historyRow(h));
+  }
   historyOffset += rows.length;
   const more = $('historyMore');
   const remaining = j.total - historyOffset;
