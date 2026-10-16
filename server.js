@@ -10675,6 +10675,45 @@ async function handleFtpRoute(req, res, url, p) {
     return true;
   }
 
+  // zftpd's disk usage tree (what is using the console's storage), the current
+  // install's progress, and a folder's size — the last of the useful HTTP features.
+  if (req.method === 'GET' && p === '/api/ftp/disktree') {
+    const prof = findFtpSource(url.searchParams.get('src'));
+    if (!prof) return bad(404, 'FTP console not found');
+    const z = await zftpdProbe(prof);
+    if (!z.present) return bad(409, 'this console is not running zftpd with its HTTP layer — load the zhttp build and try again');
+    const qp = String(url.searchParams.get('path') || '');
+    const r = await zftpdGetAfterAnother(prof.ftpHost, prof.ftpPort || 2121, '/api/disk/tree' + (qp ? '?path=' + encodeURIComponent(qp) : ''), 8000);
+    if (!r) return bad(502, 'the console did not answer the disk-tree request');
+    sendJson(res, 200, r);
+    return true;
+  }
+
+  if (req.method === 'GET' && p === '/api/ftp/install_status') {
+    const prof = findFtpSource(url.searchParams.get('src'));
+    if (!prof) return bad(404, 'FTP console not found');
+    const z = await zftpdProbe(prof);
+    if (!z.present) return bad(409, 'this console is not running zftpd with its HTTP layer — load the zhttp build and try again');
+    const id = String(url.searchParams.get('id') || '');
+    const r = await zftpdGetAfterAnother(prof.ftpHost, prof.ftpPort || 2121, '/api/admin/games/install_status' + (id ? '?id=' + encodeURIComponent(id) : ''), 6000);
+    if (!r) return bad(502, 'the console did not answer the install-status request');
+    sendJson(res, 200, r);
+    return true;
+  }
+
+  if (req.method === 'GET' && p === '/api/ftp/dirsize') {
+    const prof = findFtpSource(url.searchParams.get('src'));
+    if (!prof) return bad(404, 'FTP console not found');
+    const z = await zftpdProbe(prof);
+    if (!z.present) return bad(409, 'this console is not running zftpd with its HTTP layer — load the zhttp build and try again');
+    const qp = String(url.searchParams.get('path') || '');
+    if (!qp) return bad(400, 'a path is required');
+    const r = await zftpdGetAfterAnother(prof.ftpHost, prof.ftpPort || 2121, '/api/dirsize?path=' + encodeURIComponent(qp), 20000);
+    if (!r) return bad(502, 'the console did not answer the size request');
+    sendJson(res, 200, r);
+    return true;
+  }
+
   if (req.method === 'POST' && p === '/api/ftp/mkdir') {
     const got = await readJson(req, 1 << 16);
     if (got.error) return bad(got.status, got.error);

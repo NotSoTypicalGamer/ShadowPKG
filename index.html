@@ -985,6 +985,8 @@
   .sysrow .sv { font-weight: 600; }
   .sysrow.dnsrow .sv { flex: none; }
   .sysrow.dnsrow button { margin-left: auto; }
+  .syssec { margin-top: 8px; }
+  .syshead { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 4px 2px; }
   .xferCrumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; font-size: 13px; color: var(--muted); padding: 6px 2px; overflow-wrap: anywhere; }
   .xferCrumbs button { padding: 3px 6px; border-radius: 4px; background: transparent; color: var(--link); font-weight: 600; }
   .xferCrumbs button:hover { background: var(--ghost-hover); text-decoration: underline; }
@@ -2621,6 +2623,7 @@
       <button class="ghost pb pb-t" id="extractBtn" type="button" hidden>Extract</button>
       <button class="ghost pb pb-t" id="regionBtn" type="button" hidden>Change region…</button>
       <button class="ghost pb pb-t" id="ignoreAttnBtn" type="button" hidden>Ignore</button>
+      <button class="ghost pb pb-t" id="sizeBtn" type="button" hidden>Size</button>
       <button class="ghost pb pb-t" id="dlBtn" type="button">Download</button>
       <button class="ghost pb pb-t" id="link" type="button">Copy link</button>
       <button class="pb pb-x" id="send" type="button">Send to PS5</button>
@@ -2630,7 +2633,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.0.30';
+const APP_VERSION = '1.0.31';
 $('appVer').textContent = 'v' + APP_VERSION;
 const ICON_DIR = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 const CHEV = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
@@ -6580,6 +6583,10 @@ function updateTray() {
   $('dlBtn').title = selFiles.length === 0 ? 'Select files to download them to this device'
     : selFiles.length === 1 ? 'Download ' + selFiles[0].path.split('!/').pop().split('/').pop() + ' to this device'
     : `Download ${selFiles.length} files as one ZIP`;
+  // A folder's total size on a zftpd console (its HTTP layer walks the tree server-side).
+  const oneFtpDir = !!one && !!one.dir && isFtpSrc(one.src) && !!(ftpDrives.get(one.src) || {}).present;
+  $('sizeBtn').hidden = !oneFtpDir;
+  $('sizeBtn').title = oneFtpDir ? `Get the total size of ${one.path.split('/').pop()}` : '';
   // Open reads a text file in the app: one file, and one that looks like text by its extension.
   // Not offered at all over FTP in this pass — see ftp-spec.md — so this says why
   // rather than just doing nothing.
@@ -6870,7 +6877,12 @@ async function openSystemDlg(src, prof) {
   $('sysBody').replaceChildren();
   $('sysDlg').showModal();
   try {
-    renderSystem(await api('GET', 'api/ftp/system?src=' + encodeURIComponent(src)));
+    const [sys, disk, inst] = await Promise.all([
+      api('GET', 'api/ftp/system?src=' + encodeURIComponent(src)),
+      api('GET', 'api/ftp/disktree?src=' + encodeURIComponent(src)).catch(() => null),
+      api('GET', 'api/ftp/install_status?src=' + encodeURIComponent(src)).catch(() => null),
+    ]);
+    renderSystem(sys, disk, inst);
   } catch (e) {
     $('sysErr').textContent = e.message;
   }
@@ -6882,7 +6894,7 @@ function fmtUptime(sec) {
   if (h) return `${h}h ${m}m`;
   return `${m}m`;
 }
-function renderSystem(j) {
+function renderSystem(j, disk, inst) {
   const box = $('sysBody'); box.replaceChildren();
   const sys = j.sys || {}, ram = j.ram || {}, dns = j.dns || {};
   const rows = [
@@ -6890,9 +6902,21 @@ function renderSystem(j) {
     ['Uptime', fmtUptime(sys.uptime_seconds)],
   ];
   if (ram.total) rows.push(['Memory', `${fmtSize(ram.used)} used of ${fmtSize(ram.total)} (${fmtSize(ram.free)} free)`]);
+  if (inst && inst.active) rows.push(['Installing', `${inst.title_id || '…'} · ${inst.progress != null ? inst.progress + '%' : ''}`]);
   const grid = el('div', 'sysgrid');
   for (const [k, v] of rows) { const r = el('div', 'sysrow'); r.append(el('span', 'sk', k), el('span', 'sv', v)); grid.append(r); }
   box.append(grid);
+  const kids = disk && Array.isArray(disk.children) ? disk.children.slice().sort((a, b) => (b.size || 0) - (a.size || 0)) : [];
+  if (kids.length) {
+    const sec = el('div', 'syssec');
+    sec.append(el('div', 'syshead', 'Disk usage'));
+    for (const c of kids.slice(0, 12)) {
+      const r = el('div', 'sysrow');
+      r.append(el('span', 'sk', (c.name || '?') + (c.type === 'directory' ? '/' : '')), el('span', 'sv', c.size ? fmtSize(c.size) : ''));
+      sec.append(r);
+    }
+    box.append(sec);
+  }
   const enabled = !!(dns && (dns.enabled === true || dns.enabled === 'true'));
   const drow = el('div', 'sysrow dnsrow');
   drow.append(el('span', 'sk', 'DNS filter'), el('span', 'sv', enabled ? 'On' : 'Off'));
@@ -9723,6 +9747,19 @@ async function sendPayloadTo(f, targets) {
   else showNote(`Sent ${name} to ${ok.join(', ')}.`, 'ok');
 }
 $('deleteBtn').onclick = deleteSelected;
+$('sizeBtn').onclick = async () => {
+  const all = [...selected.values()];
+  const f = all.length === 1 ? all[0] : null;
+  if (!f || !f.dir || !isFtpSrc(f.src)) return;
+  const b = $('sizeBtn');
+  showNote(`Measuring ${f.path.split('/').pop()}…`, 'ok');
+  b.disabled = true;
+  try {
+    const r = await api('GET', `api/ftp/dirsize?src=${encodeURIComponent(f.src)}&path=${encodeURIComponent(f.path)}`);
+    showNote(`${f.path.split('/').pop()}: ${r && r.size != null ? fmtSize(r.size) : 'unknown size'}`, 'ok');
+  } catch (e) { showNote(e.message, 'err'); }
+  b.disabled = false;
+};
 // Clear drops everything ticked, including what is ticked in folders that are not on the screen. The box that started the
 // selection (the header box) takes focus, since the tray, where the button was, goes away with the selection.
 $('clearSel').onclick = () => {
