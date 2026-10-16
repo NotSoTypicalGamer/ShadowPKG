@@ -37,7 +37,7 @@ WORKDIR /app
 # package.json/package-lock.json change, not on every server.js/index.html edit.
 COPY package.json package-lock.json ./
 RUN npm install --omit=dev --no-audit --no-fund
-COPY server.js index.html ./
+COPY server.js index.html recommended.json ./
 
 ENV ROOT=/games \
     SOURCES_DIR=/extra-libraries \
