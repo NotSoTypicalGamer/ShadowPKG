@@ -10465,29 +10465,39 @@ async function zftpdInstall(prof, pkgUrl, port) {
   return { ok: false, status: r.status, reply: j, payload: { ok: false, url: pkgUrl, profile: prof.name, installer: 'zftpd', error: `${prof.name} (zftpd) replied: ${j.message || j.error || JSON.stringify(j)}` } };
 }
 const zftpdCache = new Map();      // profile id -> { at, result }
+const zftpdInFlight = new Map();   // profile id -> Promise — dedupes concurrent probes
 async function zftpdProbe(prof, force) {
   const hit = zftpdCache.get(prof.id);
   const ttl = hit && hit.result.present ? 20000 : 60000;
   if (hit && !force && Date.now() - hit.at < ttl) return hit.result;
-  // A console can answer as a zftpd on a port the profile never set (zftpd's console
-  // default 2120 vs the 2121 placeholder), so try each likely port and remember the
-  // one that answered.
-  for (const port of ftpPortsOf(prof)) {
-    // The first HTTP request to a zftpd console can be dropped when it comes with
-    // no gap after another connection on the same port (see zftpdGetAfterAnother),
-    // so the /api/status probe uses that sleep + retry path rather than one attempt.
-    const status = await zftpdGetAfterAnother(prof.ftpHost, port, '/api/status', 2500);
-    if (status) {
-      if (port !== prof.ftpPort) prof.ftpPort = port;
-      const mounts = await zftpdGetAfterAnother(prof.ftpHost, port, '/api/mounts', 4000);
-      const result = { ...zftpdFromAnswers(status, mounts), port };
-      zftpdCache.set(prof.id, { at: Date.now(), result });
-      return result;
+  // Two routes (the /api/ftp/zftpd probe and the /api/status label probe) call this
+  // at once; without dedup they hit the console's single port together and one request
+  // gets ECONNRESET, then a false present:false is cached for a minute and every
+  // zftpd-gated button disappears. Share one in-flight probe instead of racing.
+  if (zftpdInFlight.has(prof.id)) return zftpdInFlight.get(prof.id);
+  const p = (async () => {
+    // A console can answer as a zftpd on a port the profile never set (zftpd's console
+    // default 2120 vs the 2121 placeholder), so try each likely port and remember the
+    // one that answered.
+    for (const port of ftpPortsOf(prof)) {
+      // The first HTTP request to a zftpd console can be dropped when it comes with
+      // no gap after another connection on the same port (see zftpdGetAfterAnother),
+      // so the /api/status probe uses that sleep + retry path rather than one attempt.
+      const status = await zftpdGetAfterAnother(prof.ftpHost, port, '/api/status', 2500);
+      if (status) {
+        if (port !== prof.ftpPort) prof.ftpPort = port;
+        const mounts = await zftpdGetAfterAnother(prof.ftpHost, port, '/api/mounts', 4000);
+        const result = { ...zftpdFromAnswers(status, mounts), port };
+        zftpdCache.set(prof.id, { at: Date.now(), result });
+        return result;
+      }
     }
-  }
-  const result = { present: false };
-  zftpdCache.set(prof.id, { at: Date.now(), result });
-  return result;
+    const result = { present: false };
+    zftpdCache.set(prof.id, { at: Date.now(), result });
+    return result;
+  })();
+  zftpdInFlight.set(prof.id, p);
+  try { return await p; } finally { zftpdInFlight.delete(prof.id); }
 }
 
 // ---- Icons of what a console has installed, kept on this server -----------------------------------------------
