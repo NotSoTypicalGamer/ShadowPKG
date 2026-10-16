@@ -10594,6 +10594,40 @@ async function handleFtpRoute(req, res, url, p) {
     return true;
   }
 
+  // Launch an installed game on a zftpd console (its games admin API /api/admin/launch).
+  if (req.method === 'POST' && p === '/api/ftp/games/launch') {
+    const prof = findFtpSource(url.searchParams.get('src'));
+    if (!prof) return bad(404, 'FTP console not found');
+    const got = await readJson(req, 1 << 14);
+    if (got.error) return bad(got.status, got.error);
+    const titleId = String((got.body && got.body.titleId) || '').trim().toUpperCase();
+    if (!/^[A-Z]{4}\d{5}$/.test(titleId)) return bad(400, 'a valid title id is required (like CUSA12345 or PPSA12345)');
+    const z = await zftpdProbe(prof);
+    if (!z.present) return bad(409, 'this console is not running zftpd with its HTTP layer, which is what launches games — load the zhttp build and try again');
+    const r = await zftpdGetAfterAnother(prof.ftpHost, prof.ftpPort || 2121, '/api/admin/launch?id=' + encodeURIComponent(titleId), 30000);
+    if (!r) return bad(502, 'the console did not answer the launch request');
+    sendJson(res, 200, r);
+    return true;
+  }
+
+  // Repair titles that installed but don't show on the home screen (zftpd's
+  // /api/admin/games/repair_visibility). No titleId repairs every missing title.
+  if (req.method === 'POST' && p === '/api/ftp/games/repair') {
+    const prof = findFtpSource(url.searchParams.get('src'));
+    if (!prof) return bad(404, 'FTP console not found');
+    const got = await readJson(req, 1 << 14);
+    if (got.error) return bad(got.status, got.error);
+    const titleId = String((got.body && got.body.titleId) || '').trim().toUpperCase();
+    if (titleId && !/^[A-Z]{4}\d{5}$/.test(titleId)) return bad(400, 'a valid title id is required (like CUSA12345 or PPSA12345)');
+    const z = await zftpdProbe(prof);
+    if (!z.present) return bad(409, 'this console is not running zftpd with its HTTP layer, which is what repairs — load the zhttp build and try again');
+    const path = '/api/admin/games/repair_visibility' + (titleId ? '?id=' + encodeURIComponent(titleId) : '');
+    const r = await zftpdGetAfterAnother(prof.ftpHost, prof.ftpPort || 2121, path, 30000);
+    if (!r) return bad(502, 'the console did not answer the repair request');
+    sendJson(res, 200, r);
+    return true;
+  }
+
   if (req.method === 'POST' && p === '/api/ftp/mkdir') {
     const got = await readJson(req, 1 << 16);
     if (got.error) return bad(got.status, got.error);

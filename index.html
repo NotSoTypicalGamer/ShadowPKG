@@ -2261,6 +2261,7 @@
     <div id="instTools">
       <input type="search" id="instQ" placeholder="Filter by name or title ID" autocomplete="off" spellcheck="false">
       <button class="ghost pb pb-o" id="instRefresh" type="button">Refresh</button>
+      <button class="ghost pb pb-o" id="instRepair" type="button">Repair visibility</button>
     </div>
     <div class="formerr" id="instErr"></div>
     <div id="instList"></div>
@@ -2599,7 +2600,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.0.27';
+const APP_VERSION = '1.0.28';
 $('appVer').textContent = 'v' + APP_VERSION;
 const ICON_DIR = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 const CHEV = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
@@ -6723,6 +6724,11 @@ function renderInstalled() {
       u.title = `Uninstall ${g.title} (${g.titleId}) — removes it and its data from the console`;
       u.onclick = e => { e.stopPropagation(); confirmUninstall(g, instState.src); };
       body.append(u);
+      const l = el('button', 'ghost pb pb-s', 'Launch');
+      l.type = 'button';
+      l.title = `Launch ${g.title} (${g.titleId}) on this console`;
+      l.onclick = e => { e.stopPropagation(); launchGame(g, instState.src); };
+      body.append(l);
     }
     let ul = null;
     if (g.dlc.length) {
@@ -6749,6 +6755,7 @@ function renderInstalled() {
 }
 $('instQ').oninput = renderInstalled;
 $('instRefresh').onclick = () => { const x = instState && sources.find(s => s.id === instState.src); if (x) openInstalled(x, true); };
+$('instRepair').onclick = () => { if (instState) repairVisibility(instState.src); };
 $('instClose').onclick = () => $('instDlg').close();
 closeOnBackdrop($('instDlg'));
 $('instDlg').addEventListener('close', () => { instState = null; });
@@ -6772,6 +6779,30 @@ async function uninstallGame(g, src) {
   }
   const x = sources.find(s => s.id === src);
   if (x) openInstalled(x, true);
+}
+
+// Launch an installed game on a zftpd console, and repair titles that installed
+// but don't show on the home screen — both the same games admin API as uninstall.
+async function launchGame(g, src) {
+  showNote(`Launching ${g.title || g.titleId}…`, 'ok');
+  try {
+    const r = await api('POST', `api/ftp/games/launch?src=${encodeURIComponent(src)}`, { titleId: g.titleId });
+    showNote(r && r.message ? r.message : ((r && r.ok) ? `Launching ${g.title || g.titleId}.` : 'The console refused.'), (r && r.ok) ? 'ok' : 'err');
+  } catch (e) {
+    showNote('Could not launch: ' + e.message, 'err');
+  }
+}
+async function repairVisibility(src) {
+  showNote('Repairing visibility…', 'ok');
+  try {
+    const r = await api('POST', `api/ftp/games/repair?src=${encodeURIComponent(src)}`, {});
+    const sr = r && r.sqlite_repair;
+    if (sr && sr.titles > 0) showNote(`Repaired ${sr.titles} title${sr.titles === 1 ? '' : 's'} (${sr.tables} table${sr.tables === 1 ? '' : 's'}, ${sr.rows} row${sr.rows === 1 ? '' : 's'}).`, 'ok');
+    else if (sr) showNote('Nothing to repair — every title is already visible.', 'ok');
+    else showNote((r && r.message) || 'Visibility repaired.', 'ok');
+  } catch (e) {
+    showNote('Could not repair: ' + e.message, 'err');
+  }
 }
 
 // ---- DLC for another region ------------------------------------------------------------------------------
