@@ -2558,7 +2558,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.0.21';
+const APP_VERSION = '1.0.22';
 $('appVer').textContent = 'v' + APP_VERSION;
 const ICON_DIR = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 const CHEV = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
@@ -6566,6 +6566,16 @@ function renderInstalled() {
     body.append(ttl);
     const facts = g.notInstalled ? [g.platform] : [g.platform, g.titleId, g.version && 'v' + g.version, g.size && fmtSize(g.size), g.storage];
     body.append(el('div', 'dlmeta', facts.filter(Boolean).join(' · ')));
+    // Uninstall is a zftpd feature: only shown when this console's FTP is a zftpd
+    // (the payload that exposes /api/admin/games/uninstall), and never for a DLC
+    // orphan whose game isn't installed.
+    if (zf && zf.present && !g.notInstalled) {
+      const u = el('button', 'ghost pb pb-s', 'Uninstall');
+      u.type = 'button';
+      u.title = `Uninstall ${g.title} (${g.titleId}) — removes it and its data from the console`;
+      u.onclick = e => { e.stopPropagation(); confirmUninstall(g, instState.src); };
+      body.append(u);
+    }
     let ul = null;
     if (g.dlc.length) {
       const c = el('span', 'chip kind', plural(g.dlc.length, 'DLC', 'DLC'));
@@ -6594,6 +6604,27 @@ $('instRefresh').onclick = () => { const x = instState && sources.find(s => s.id
 $('instClose').onclick = () => $('instDlg').close();
 closeOnBackdrop($('instDlg'));
 $('instDlg').addEventListener('close', () => { instState = null; });
+
+// Uninstall a game on a zftpd console: confirm, then POST to the server, which
+// relays it to zftpd's games admin API and reports the outcome.
+function confirmUninstall(g, src) {
+  const lib = sources.find(s => s.id === src);
+  if (!confirm(`Uninstall ${g.title || g.titleId} (${g.titleId}) from ${lib ? lib.label : 'this console'}?\n\nIt removes the game and its installed data, and cannot be undone.`)) return;
+  uninstallGame(g, src);
+}
+async function uninstallGame(g, src) {
+  showNote(`Uninstalling ${g.title || g.titleId}…`, 'ok');
+  let ok = false;
+  try {
+    const r = await api('POST', `api/ftp/games/uninstall?src=${encodeURIComponent(src)}`, { titleId: g.titleId });
+    ok = !!(r && r.ok);
+    showNote(r && r.message ? r.message : (ok ? 'Uninstalled.' : 'The console refused.'), ok ? 'ok' : 'err');
+  } catch (e) {
+    showNote('Could not uninstall: ' + e.message, 'err');
+  }
+  const x = sources.find(s => s.id === src);
+  if (x) openInstalled(x, true);
+}
 
 // ---- DLC for another region ------------------------------------------------------------------------------
 // The DLC selected is rebuilt by the builder as the same DLC of another release of the same game: the 16-character

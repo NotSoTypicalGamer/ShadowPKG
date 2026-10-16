@@ -10455,6 +10455,24 @@ async function handleFtpRoute(req, res, url, p) {
     return true;
   }
 
+  // Uninstall a game on a zftpd console via its games admin API. zftpd is the
+  // payload that exposes this (POST /api/admin/games/uninstall?id=<title_id>);
+  // a console on plain FTP (ftpsrv) gets a clear "not running zftpd" answer.
+  if (req.method === 'POST' && p === '/api/ftp/games/uninstall') {
+    const prof = findFtpSource(url.searchParams.get('src'));
+    if (!prof) return bad(404, 'FTP console not found');
+    const got = await readJson(req, 1 << 14);
+    if (got.error) return bad(got.status, got.error);
+    const titleId = String((got.body && got.body.titleId) || '').trim().toUpperCase();
+    if (!/^[A-Z]{4}\d{5}$/.test(titleId)) return bad(400, 'a valid title id is required (like CUSA12345 or PPSA12345)');
+    const z = await zftpdProbe(prof);
+    if (!z.present) return bad(409, 'this console is not running zftpd, which is what uninstalls games — load zftpd and try again');
+    const r = await zftpdGetAfterAnother(prof.ftpHost, prof.ftpPort || 2121, '/api/admin/games/uninstall?id=' + encodeURIComponent(titleId), 30000, 'POST');
+    if (!r) return bad(502, 'the console did not answer the uninstall request');
+    sendJson(res, 200, r);
+    return true;
+  }
+
   if (req.method === 'POST' && p === '/api/ftp/mkdir') {
     const got = await readJson(req, 1 << 16);
     if (got.error) return bad(got.status, got.error);
