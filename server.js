@@ -10399,7 +10399,10 @@ function zftpdFromAnswers(status, mounts) {
 // ==== end zftpd-probe ====
 function httpJson(host, port, pathName, ms, method = 'GET') {
   return new Promise(resolve => {
-    const req = http.request({ host, port, path: pathName, method, timeout: ms, headers: { 'Accept': 'application/json', 'Connection': 'close' } }, res => {
+    // agent:false — the global agent keep-alives (Node 22 default), but zftpd
+    // closes the socket after every response (Connection: close), so a reused
+    // dead socket returns ECONNRESET and the probe flaps between present/absent.
+    const req = http.request({ host, port, path: pathName, method, timeout: ms, agent: false, headers: { 'Accept': 'application/json', 'Connection': 'close' } }, res => {
       if (res.statusCode !== 200 || !/json/i.test(String(res.headers['content-type'] || ''))) { res.resume(); resolve(null); return; }
       let data = '';
       res.setEncoding('utf8');
@@ -10418,7 +10421,7 @@ const httpGetJson = (host, port, pathName, ms) => httpJson(host, port, pathName,
 // all — used where that reason matters, such as a CSRF refusal on an action a real browser session would pass.
 function httpJsonAny(host, port, pathName, ms, method = 'GET') {
   return new Promise(resolve => {
-    const req = http.request({ host, port, path: pathName, method, timeout: ms, headers: { 'Accept': 'application/json', 'Connection': 'close' } }, res => {
+    const req = http.request({ host, port, path: pathName, method, timeout: ms, agent: false, headers: { 'Accept': 'application/json', 'Connection': 'close' } }, res => {
       const isJson = /json/i.test(String(res.headers['content-type'] || ''));
       let data = '';
       res.setEncoding('utf8');
