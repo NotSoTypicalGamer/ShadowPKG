@@ -2904,6 +2904,12 @@ function renderProfiles() {
       // then answers at once from its 15 s memory, so redrawing on it would loop without ever yielding to the page.
       if (!ftpDrivesAt.has(fid)) loadZftpd(fid).then(() => renderProfiles());
       const z = ftpDrives.get(fid);
+      // Save data is plain FTP, so this button shows for any FTP console — not only when the
+      // zftpd HTTP layer is reachable (the eject/notify/system row below).
+      const saves = el('button', 'ghost', 'Saves'); saves.type = 'button';
+      saves.title = "Back up this console's save data and restore it later.";
+      saves.onclick = e => { e.stopPropagation(); openSavesDlg(fid, p); };
+      row.append(saves);
       if (z && z.present) {
         const eject = el('button', 'ghost', 'Eject'); eject.type = 'button';
         eject.title = "Eject this console's disc (zftpd). Only shown once a drive has answered; a Digital Edition console never gets this button.";
@@ -2932,10 +2938,7 @@ function renderProfiles() {
         const sys = el('button', 'ghost', 'System'); sys.type = 'button';
         sys.title = "This console's CPU temperature, memory and the zftpd DNS filter.";
         sys.onclick = e => { e.stopPropagation(); openSystemDlg(fid, p); };
-        const saves = el('button', 'ghost', 'Saves'); saves.type = 'button';
-        saves.title = "Back up this console's save data and restore it later.";
-        saves.onclick = e => { e.stopPropagation(); openSavesDlg(fid, p); };
-        row.append(eject, notify, sys, saves);
+        row.append(eject, notify, sys);
       }
     }
     // ps5-tailscale: asked once whether this console has a config.json; if so, offer the
