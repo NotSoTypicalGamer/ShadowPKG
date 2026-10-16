@@ -9750,6 +9750,69 @@ async function savePayload(name, buf) {
   catch (e) { try { await fsp.unlink(tmp); } catch {} throw e; }
 }
 
+// ---- GitHub payloads: fetch a release and watch repos ------------------------
+// The owner can pull a payload from a GitHub repo's latest release straight into
+// the stored-payloads folder, and keep a small watch list of repos to re-check for
+// a newer tag (checked on demand, and again on a slow timer). The watch list lives
+// in CONFIG_DIR so it survives restarts.
+const WATCH_FILE = path.join(CONFIG_DIR, 'github-watch.json');
+let githubWatch = [];                            // [{repo, tag, name, at}]
+try {
+  const w = JSON.parse(fs.readFileSync(WATCH_FILE, 'utf8'));
+  if (Array.isArray(w)) githubWatch = w.filter(x => x && typeof x.repo === 'string' && typeof x.tag === 'string');
+} catch {}
+
+async function saveGithubWatch() {
+  try {
+    const tmp = `${WATCH_FILE}.part-${crypto.randomBytes(4).toString('hex')}`;
+    await fsp.writeFile(tmp, JSON.stringify(githubWatch, null, 2));
+    try { await fsp.rename(tmp, WATCH_FILE); } catch (e) { try { await fsp.unlink(tmp); } catch {} throw e; }
+  } catch {}
+}
+
+const GH_REPO_RE = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
+// The latest release of an owner/name repo, or {error} on any problem. Only the
+// fields the dialog shows plus the payload-ready assets (a browser_download_url) are
+// kept; nothing else is forwarded, so a repo full of unrelated files just shows
+// nothing downloadable.
+async function githubRelease(repo) {
+  if (!GH_REPO_RE.test(repo)) return { error: 'a repo looks like owner/name' };
+  let res;
+  try {
+    res = await fetch(`https://api.github.com/repos/${repo}/releases/latest`, {
+      headers: { 'User-Agent': 'ShadowPKG', 'Accept': 'application/vnd.github+json' },
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch (e) { return { error: 'could not reach GitHub: ' + (e && e.message || e) }; }
+  if (res.status === 404) return { error: 'no releases there (or the repo does not exist)' };
+  if (res.status === 403) return { error: 'GitHub refused the request (rate limit, or the repo is blocked)' };
+  if (!res.ok) return { error: `GitHub answered ${res.status}` };
+  let j;
+  try { j = await res.json(); } catch { return { error: 'GitHub sent something that was not JSON' }; }
+  const assets = (Array.isArray(j.assets) ? j.assets : [])
+    .filter(a => a && a.browser_download_url)
+    .map(a => ({ name: a.name, size: a.size || 0, url: a.browser_download_url }));
+  return { repo, tag: j.tag_name || null, name: j.name || repo, publishedAt: j.published_at || null, draft: !!j.draft, prerelease: !!j.prerelease, assets };
+}
+
+// Re-check every watched repo for a newer tag. Returns the list of {repo, from, to}
+// that moved; the watch list itself is updated in place and re-saved.
+async function checkGithubWatch() {
+  const updated = [];
+  for (const wi of githubWatch) {
+    const rel = await githubRelease(wi.repo);
+    if (rel.error || !rel.tag || rel.tag === wi.tag) continue;
+    updated.push({ repo: wi.repo, from: wi.tag, to: rel.tag });
+    wi.tag = rel.tag; wi.name = rel.name || wi.repo; wi.at = Date.now();
+  }
+  if (updated.length) {
+    saveGithubWatch();
+    for (const u of updated) console.log(`GitHub watch: ${u.repo} ${u.from} -> ${u.to}`);
+  }
+  return updated;
+}
+setInterval(() => { checkGithubWatch().catch(() => {}); }, 12 * 60 * 60 * 1000).unref?.();
+
 // ---- Profiles with an FTP source ----------------------------------------------
 // Fields that carry "not set" as null are dropped rather than saved, so a profile
 // stays a plain record of what was actually configured. FTP and the payload loader
@@ -12440,6 +12503,74 @@ const server = http.createServer(async (req, res) => {
       if (!name) return sendJson(res, 400, { error: 'that is not a stored payload' });
       try { await fsp.unlink(payloadPathOf(name)); } catch { return sendJson(res, 404, { error: 'that payload is not there' }); }
       return sendJson(res, 200, await listPayloads());
+    }
+
+    // GitHub payloads: look at a repo's latest release, save one of its assets into the
+    // stored-payloads folder, and keep/watch a list of repos to re-check for newer tags.
+    if (req.method === 'GET' && p === '/api/github/release') {
+      return sendJson(res, 200, await githubRelease(String(url.searchParams.get('repo') || '').trim()));
+    }
+
+    if (req.method === 'POST' && p === '/api/github/save') {
+      if (!payloadsWritable) return sendJson(res, 409, { error: `The config folder (${CONFIG_DIR}) is not writable, so a payload cannot be kept` });
+      let body;
+      try { body = parseJsonObject(await readBody(req)); } catch (e) { return sendJson(res, 400, { error: e && e.notObject ? 'expected a JSON object' : 'invalid JSON' }); }
+      const repo = String(body.repo || '').trim();
+      const want = String(body.asset || '').trim();
+      if (!want) return sendJson(res, 400, { error: 'pick an asset to save' });
+      const rel = await githubRelease(repo);
+      if (rel.error) return sendJson(res, 400, { error: rel.error });
+      const asset = rel.assets.find(a => a.name === want);
+      if (!asset) return sendJson(res, 404, { error: 'that asset is not in the latest release' });
+      const name = storedPayloadName(asset.name);
+      if (!name) return sendJson(res, 400, { error: `that asset is not a payload (${PAYLOAD_EXTS.join(', ')})` });
+      if (asset.size > PAYLOAD_MAX) return sendJson(res, 413, { error: `the payload is larger than ${PAYLOAD_MAX / (1024 * 1024)} MB` });
+      let buf;
+      try {
+        const dres = await fetch(asset.url, { headers: { 'User-Agent': 'ShadowPKG' }, signal: AbortSignal.timeout(60000) });
+        if (!dres.ok) throw new Error('GitHub answered ' + dres.status);
+        buf = Buffer.from(await dres.arrayBuffer());
+      } catch (e) { return sendJson(res, 502, { error: 'could not download the asset: ' + (e && e.message || e) }); }
+      if (!buf.length) return sendJson(res, 502, { error: 'the download came back empty' });
+      if (buf.length > PAYLOAD_MAX) return sendJson(res, 413, { error: `the payload is larger than ${PAYLOAD_MAX / (1024 * 1024)} MB` });
+      try { await savePayload(name, buf); } catch (e) { return sendJson(res, 500, { error: 'could not save the payload: ' + e.message }); }
+      console.log(`payload ${name} (${buf.length} bytes) fetched from github.com/${repo} and saved to ${PAYLOADS_DIR}`);
+      const wi = githubWatch.find(x => x.repo === repo);
+      if (wi) { wi.tag = rel.tag; wi.name = rel.name || repo; wi.at = Date.now(); }
+      else githubWatch.push({ repo, tag: rel.tag, name: rel.name || repo, at: Date.now() });
+      saveGithubWatch();
+      return sendJson(res, 200, { ok: true, name, bytes: buf.length, tag: rel.tag, ...(await listPayloads()) });
+    }
+
+    if (req.method === 'GET' && p === '/api/github/watch') {
+      return sendJson(res, 200, { repos: githubWatch });
+    }
+
+    if (req.method === 'POST' && p === '/api/github/watch') {
+      let body;
+      try { body = parseJsonObject(await readBody(req)); } catch (e) { return sendJson(res, 400, { error: e && e.notObject ? 'expected a JSON object' : 'invalid JSON' }); }
+      const repo = String(body.repo || '').trim();
+      const rel = await githubRelease(repo);
+      if (rel.error) return sendJson(res, 400, { error: rel.error });
+      const wi = githubWatch.find(x => x.repo === repo);
+      if (wi) { wi.tag = rel.tag; wi.name = rel.name || repo; wi.at = Date.now(); }
+      else githubWatch.push({ repo, tag: rel.tag, name: rel.name || repo, at: Date.now() });
+      saveGithubWatch();
+      return sendJson(res, 200, { repos: githubWatch });
+    }
+
+    if (req.method === 'POST' && p === '/api/github/watch/check') {
+      const updated = await checkGithubWatch();
+      return sendJson(res, 200, { updated, repos: githubWatch });
+    }
+
+    const ghDel = /^\/api\/github\/watch\/(.+)$/.exec(p);
+    if (ghDel && req.method === 'DELETE') {
+      let raw = ghDel[1];
+      try { raw = decodeURIComponent(raw); } catch {}
+      githubWatch = githubWatch.filter(x => x.repo !== raw);
+      saveGithubWatch();
+      return sendJson(res, 200, { repos: githubWatch });
     }
 
     // Send a payload (.elf/.bin/.js/.lua/.jar) to a console's own loader port — raw TCP,
