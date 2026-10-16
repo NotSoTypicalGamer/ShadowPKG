@@ -10634,10 +10634,11 @@ async function handleFtpRoute(req, res, url, p) {
   if (req.method === 'GET' && p === '/api/ftp/zftpd') {
     const prof = findFtpSource(url.searchParams.get('src'));
     if (!prof) return bad(404, 'FTP console not found');
-    const [z, ftpZftpd] = await Promise.all([
-      zftpdProbe(prof, !!url.searchParams.get('refresh')),
-      ftpBannerIsZftpd(prof),
-    ]);
+    // Serial, not Promise.all: the banner check's raw TCP connection can drop the
+    // probe's HTTP request when both hit the console's single port at once, which
+    // then caches a false "not present" for a minute.
+    const z = await zftpdProbe(prof, !!url.searchParams.get('refresh'));
+    const ftpZftpd = await ftpBannerIsZftpd(prof);
     sendJson(res, 200, { ...z, ftpZftpd });
     return true;
   }
