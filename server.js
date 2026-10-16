@@ -9862,6 +9862,15 @@ function ftpOptsFor(prof) {
   // (the default when a profile has no ftpUser/ftpPass) attempts exactly that.
   return { host: prof.ftpHost, port: prof.ftpPort || 2121, user: prof.ftpUser || 'anonymous', password: prof.ftpPass || 'anonymous@', secure: false };
 }
+// The ports a console's FTP is most likely on, in order: the profile's own setting,
+// then the common defaults. zftpd's console default is 2120 while ftpsrv/etaHEN's is
+// 2121, so a profile that never set a port still finds a console that chose the
+// other one instead of failing with "could not connect".
+function ftpPortsOf(prof) {
+  const out = [];
+  for (const p of [prof.ftpPort, 2121, 2120]) if (p && !out.includes(p)) out.push(p);
+  return out;
+}
 function closeFtpConn(profileId) {
   const c = ftpConns.get(profileId);
   if (!c) return;
@@ -9891,8 +9900,16 @@ async function ensureFtpClient(prof) {
   }
   const reused = entry.loggedIn;
   if (!entry.loggedIn) {
-    await entry.client.access(ftpOptsFor(prof));
-    entry.loggedIn = true;
+    let lastErr = null;
+    for (const port of ftpPortsOf(prof)) {
+      try {
+        await entry.client.access({ ...ftpOptsFor(prof), port });
+        entry.loggedIn = true;
+        if (port !== prof.ftpPort) prof.ftpPort = port;   // remember the port that actually answered
+        break;
+      } catch (e) { lastErr = e; }
+    }
+    if (!entry.loggedIn) throw lastErr || new Error('could not connect to the console');
   }
   armIdle(prof.id, entry);
   return { client: entry.client, reused };
@@ -10257,10 +10274,20 @@ async function zftpdProbe(prof, force) {
   const hit = zftpdCache.get(prof.id);
   const ttl = hit && hit.result.present ? 20000 : 60000;
   if (hit && !force && Date.now() - hit.at < ttl) return hit.result;
-  const port = prof.ftpPort || 2121;
-  const status = await httpGetJson(prof.ftpHost, port, '/api/status', 2500);
-  const mounts = status ? await zftpdGetAfterAnother(prof.ftpHost, port, '/api/mounts', 4000) : null;
-  const result = status ? zftpdFromAnswers(status, mounts) : { present: false };
+  // A console can answer as a zftpd on a port the profile never set (zftpd's console
+  // default 2120 vs the 2121 placeholder), so try each likely port and remember the
+  // one that answered.
+  for (const port of ftpPortsOf(prof)) {
+    const status = await httpGetJson(prof.ftpHost, port, '/api/status', 2500);
+    if (status) {
+      if (port !== prof.ftpPort) prof.ftpPort = port;
+      const mounts = await zftpdGetAfterAnother(prof.ftpHost, port, '/api/mounts', 4000);
+      const result = { ...zftpdFromAnswers(status, mounts), port };
+      zftpdCache.set(prof.id, { at: Date.now(), result });
+      return result;
+    }
+  }
+  const result = { present: false };
   zftpdCache.set(prof.id, { at: Date.now(), result });
   return result;
 }
