@@ -970,6 +970,14 @@
   #githubRel .arow + .arow { border-top: 1px solid var(--line); }
   #githubRel .fname { flex: 1; min-width: 0; overflow-wrap: anywhere; }
   #githubRel .muted { color: var(--muted); flex: none; }
+  /* Console system dialog: label/value rows plus the DNS toggle. */
+  .sysgrid { margin: 8px 0; }
+  .sysrow { display: flex; align-items: center; gap: 10px; padding: 8px 2px; }
+  .sysrow + .sysrow { border-top: 1px solid var(--line); }
+  .sysrow .sk { flex: 1; min-width: 0; color: var(--muted); }
+  .sysrow .sv { font-weight: 600; }
+  .sysrow.dnsrow .sv { flex: none; }
+  .sysrow.dnsrow button { margin-left: auto; }
   .xferCrumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; font-size: 13px; color: var(--muted); padding: 6px 2px; overflow-wrap: anywhere; }
   .xferCrumbs button { padding: 3px 6px; border-radius: 4px; background: transparent; color: var(--link); font-weight: 600; }
   .xferCrumbs button:hover { background: var(--ghost-hover); text-decoration: underline; }
@@ -2335,6 +2343,18 @@
   </div>
 </dialog>
 
+<dialog id="sysDlg" aria-labelledby="sysTitle">
+  <div class="dlg-head">
+    <h2 id="sysTitle">Console system</h2>
+    <button class="ghost pb pb-o" id="sysClose" type="button">Close</button>
+  </div>
+  <div class="dlg-body">
+    <div class="sendsum" id="sysSum"></div>
+    <div class="formerr" id="sysErr"></div>
+    <div id="sysBody"></div>
+  </div>
+</dialog>
+
 <dialog id="xferDlg">
   <div class="dlg-head">
     <h2 id="xferTitle">Copy</h2>
@@ -2600,7 +2620,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.0.28';
+const APP_VERSION = '1.0.29';
 $('appVer').textContent = 'v' + APP_VERSION;
 const ICON_DIR = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 const CHEV = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
@@ -2884,7 +2904,10 @@ function renderProfiles() {
           } catch (ex) { zftpdMsg[p.id] = { cls: 'bad', text: ex.message }; }
           renderProfiles();
         };
-        row.append(eject, notify);
+        const sys = el('button', 'ghost', 'System'); sys.type = 'button';
+        sys.title = "This console's CPU temperature, memory and the zftpd DNS filter.";
+        sys.onclick = e => { e.stopPropagation(); openSystemDlg(fid, p); };
+        row.append(eject, notify, sys);
       }
     }
     // ps5-tailscale: asked once whether this console has a config.json; if so, offer the
@@ -6804,6 +6827,59 @@ async function repairVisibility(src) {
     showNote('Could not repair: ' + e.message, 'err');
   }
 }
+
+// Console health (CPU temperature, memory, uptime) and the zftpd DNS filter, in a
+// "System" dialog opened from the console row.
+let sysState = null;
+async function openSystemDlg(src, prof) {
+  sysState = { src, prof };
+  $('sysSum').textContent = `${prof.name} (${prof.host})`;
+  $('sysErr').textContent = '';
+  $('sysBody').replaceChildren();
+  $('sysDlg').showModal();
+  try {
+    renderSystem(await api('GET', 'api/ftp/system?src=' + encodeURIComponent(src)));
+  } catch (e) {
+    $('sysErr').textContent = e.message;
+  }
+}
+function fmtUptime(sec) {
+  if (sec == null) return '—';
+  const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60);
+  if (d) return `${d}d ${h}h`;
+  if (h) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+function renderSystem(j) {
+  const box = $('sysBody'); box.replaceChildren();
+  const sys = j.sys || {}, ram = j.ram || {}, dns = j.dns || {};
+  const rows = [
+    ['CPU temperature', sys.cpu_temp != null ? `${sys.cpu_temp}°C` : '—'],
+    ['Uptime', fmtUptime(sys.uptime_seconds)],
+  ];
+  if (ram.total) rows.push(['Memory', `${fmtSize(ram.used)} used of ${fmtSize(ram.total)} (${fmtSize(ram.free)} free)`]);
+  const grid = el('div', 'sysgrid');
+  for (const [k, v] of rows) { const r = el('div', 'sysrow'); r.append(el('span', 'sk', k), el('span', 'sv', v)); grid.append(r); }
+  box.append(grid);
+  const enabled = !!(dns && (dns.enabled === true || dns.enabled === 'true'));
+  const drow = el('div', 'sysrow dnsrow');
+  drow.append(el('span', 'sk', 'DNS filter'), el('span', 'sv', enabled ? 'On' : 'Off'));
+  const dtog = el('button', 'ghost pb pb-s', enabled ? 'Disable' : 'Enable');
+  dtog.type = 'button';
+  dtog.title = 'Toggle zftpd\'s built-in DNS filter (blocks telemetry and ads on the console).';
+  dtog.onclick = async () => {
+    dtog.disabled = true;
+    try {
+      const r = await api('POST', 'api/ftp/dns?src=' + encodeURIComponent(sysState.src), { enable: !enabled });
+      showNote(r && r.message ? r.message : ((r && r.ok) ? 'DNS filter updated.' : 'The console refused.'), (r && r.ok) ? 'ok' : 'err');
+      openSystemDlg(sysState.src, sysState.prof);
+    } catch (e) { showNote(e.message, 'err'); dtog.disabled = false; }
+  };
+  drow.append(dtog);
+  box.append(drow);
+}
+$('sysClose').onclick = () => $('sysDlg').close();
+closeOnBackdrop($('sysDlg'));
 
 // ---- DLC for another region ------------------------------------------------------------------------------
 // The DLC selected is rebuilt by the builder as the same DLC of another release of the same game: the 16-character

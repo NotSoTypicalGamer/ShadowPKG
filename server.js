@@ -10628,6 +10628,39 @@ async function handleFtpRoute(req, res, url, p) {
     return true;
   }
 
+  // Console health (CPU temperature, RAM, uptime) and the DNS filter, all zftpd-HTTP.
+  // One combined read powers the "System" panel; the fan is deliberately absent because
+  // zftpd's /api/admin/fan opens a Linux-only /dev/icc_fan device, so it can't run on a console.
+  if (req.method === 'GET' && p === '/api/ftp/system') {
+    const prof = findFtpSource(url.searchParams.get('src'));
+    if (!prof) return bad(404, 'FTP console not found');
+    const z = await zftpdProbe(prof);
+    if (!z.present) return bad(409, 'this console is not running zftpd with its HTTP layer, which is what reports its health — load the zhttp build and try again');
+    const port = prof.ftpPort || 2121;
+    const [sys, ram, dns] = await Promise.all([
+      zftpdGetAfterAnother(prof.ftpHost, port, '/api/stats/system', 4000),
+      zftpdGetAfterAnother(prof.ftpHost, port, '/api/stats/ram', 4000),
+      zftpdGetAfterAnother(prof.ftpHost, port, '/api/dns/status', 4000),
+    ]);
+    sendJson(res, 200, { sys: sys || null, ram: ram || null, dns: dns || null });
+    return true;
+  }
+
+  // Toggle zftpd's built-in DNS filter (telemetry/ad blocking on the console itself).
+  if (req.method === 'POST' && p === '/api/ftp/dns') {
+    const prof = findFtpSource(url.searchParams.get('src'));
+    if (!prof) return bad(404, 'FTP console not found');
+    const got = await readJson(req, 1 << 14);
+    if (got.error) return bad(got.status, got.error);
+    const enable = !!(got.body && got.body.enable);
+    const z = await zftpdProbe(prof);
+    if (!z.present) return bad(409, 'this console is not running zftpd with its HTTP layer — load the zhttp build and try again');
+    const r = await zftpdGetAfterAnother(prof.ftpHost, prof.ftpPort || 2121, enable ? '/api/dns/enable' : '/api/dns/disable', 8000, 'POST');
+    if (!r) return bad(502, 'the console did not answer the DNS request');
+    sendJson(res, 200, r);
+    return true;
+  }
+
   if (req.method === 'POST' && p === '/api/ftp/mkdir') {
     const got = await readJson(req, 1 << 16);
     if (got.error) return bad(got.status, got.error);
