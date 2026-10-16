@@ -4828,7 +4828,7 @@ function setFtpChip(chip, id) {
   const z = ftpDrives.get(id);
   const isZ = !!(z && z.ftpZftpd);          // the FTP port is a zftpd (banner), HTTP or not
   const isHttp = !!(z && z.present);        // zftpd's HTTP layer is reachable too
-  chip.textContent = isZ ? (isHttp ? 'zFTPd-HTTP' : 'zFTPd') : 'FTP';
+  chip.textContent = isZ ? (isHttp ? 'zhttp' : 'zFTPd') : 'FTP';
   chip.classList.toggle('zftp', isZ && !isHttp);
   chip.classList.toggle('zftp-http', isZ && isHttp);
   chip.title = !isZ ? '' : isHttp

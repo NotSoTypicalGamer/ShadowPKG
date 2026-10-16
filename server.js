@@ -10351,7 +10351,10 @@ async function zftpdProbe(prof, force) {
   // default 2120 vs the 2121 placeholder), so try each likely port and remember the
   // one that answered.
   for (const port of ftpPortsOf(prof)) {
-    const status = await httpGetJson(prof.ftpHost, port, '/api/status', 2500);
+    // The first HTTP request to a zftpd console can be dropped when it comes with
+    // no gap after another connection on the same port (see zftpdGetAfterAnother),
+    // so the /api/status probe uses that sleep + retry path rather than one attempt.
+    const status = await zftpdGetAfterAnother(prof.ftpHost, port, '/api/status', 2500);
     if (status) {
       if (port !== prof.ftpPort) prof.ftpPort = port;
       const mounts = await zftpdGetAfterAnother(prof.ftpHost, port, '/api/mounts', 4000);
@@ -10634,7 +10637,7 @@ async function handleFtpRoute(req, res, url, p) {
     if (!/^[A-Z]{4}\d{5}$/.test(titleId)) return bad(400, 'a valid title id is required (like CUSA12345 or PPSA12345)');
     const z = await zftpdProbe(prof);
     if (!z.present) return bad(409, 'this console is not running zftpd, which is what uninstalls games — load zftpd and try again');
-    const r = await zftpdGetAfterAnother(prof.ftpHost, prof.ftpPort || 2121, '/api/admin/games/uninstall?id=' + encodeURIComponent(titleId), 30000, 'POST');
+    const r = await zftpdGetAfterAnother(prof.ftpHost, prof.ftpPort || 2121, '/api/admin/games/uninstall?id=' + encodeURIComponent(titleId), 30000);
     if (!r) return bad(502, 'the console did not answer the uninstall request');
     sendJson(res, 200, r);
     return true;
@@ -12620,7 +12623,14 @@ const server = http.createServer(async (req, res) => {
             }
           }
           if (!d.ok) lookForMovedConsole(prof);   // in the background; this answer stays current
-          return [prof.id, { ok: d.ok, type: d.type, label: d.type ? DRIVERS[d.type].label : (d.ok ? 'Unknown installer' : null) }];
+          // A console whose DPI host isn't a recognised installer but that runs zftpd's
+          // zhttp build installs through that instead — so it reads "zhttp", not "unknown".
+          let label = d.type ? DRIVERS[d.type].label : (d.ok ? 'Unknown installer' : null);
+          if (!d.type && prof.ftpHost) {
+            const z = await zftpdProbe(prof).catch(() => null);
+            if (z && z.present) { d = { ...d, ok: true, zftpd: true }; label = 'zhttp'; }
+          }
+          return [prof.id, { ok: d.ok, type: d.type, label }];
         } catch {
           lookForMovedConsole(prof);
           return [prof.id, { ok: false, type: null, label: null }];
