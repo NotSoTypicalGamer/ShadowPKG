@@ -10748,9 +10748,10 @@ async function handleFtpRoute(req, res, url, p) {
     return true;
   }
 
-  // Uninstall a game on a zftpd console via its games admin API. zftpd is the
-  // payload that exposes this (POST /api/admin/games/uninstall?id=<title_id>);
-  // a console on plain FTP (ftpsrv) gets a clear "not running zftpd" answer.
+  // Uninstall a game. zftpd's games admin API is tried first; when its helper
+  // cannot complete the uninstall (the ShellCore-privilege gap on a Relapse
+  // loader), fall back to the DPI payload's GET /uninstall?title_id= on the
+  // console's installer host, which escalates its own privileges and works.
   if (req.method === 'POST' && p === '/api/ftp/games/uninstall') {
     const prof = findFtpSource(url.searchParams.get('src'));
     if (!prof) return bad(404, 'FTP console not found');
@@ -10758,12 +10759,26 @@ async function handleFtpRoute(req, res, url, p) {
     if (got.error) return bad(got.status, got.error);
     const titleId = String((got.body && got.body.titleId) || '').trim().toUpperCase();
     if (!/^[A-Z]{4}\d{5}$/.test(titleId)) return bad(400, 'a valid title id is required (like CUSA12345 or PPSA12345)');
+
     const z = await zftpdProbe(prof);
-    if (!z.present) return bad(409, 'this console is not running zftpd, which is what uninstalls games — load zftpd and try again');
-    const r = await zftpdGetAfterAnother(prof.ftpHost, prof.ftpPort || 2121, '/api/admin/games/uninstall?id=' + encodeURIComponent(titleId), 30000);
-    if (!r) return bad(502, 'the console did not answer the uninstall request');
-    sendJson(res, 200, r);
-    return true;
+    if (z.present) {
+      const r = await zftpdGetAfterAnother(prof.ftpHost, prof.ftpPort || 2121, '/api/admin/games/uninstall?id=' + encodeURIComponent(titleId), 30000);
+      if (r && r.ok) { sendJson(res, 200, r); return true; }
+    }
+
+    if (prof.host) {
+      try {
+        const dr = await ps5Request(prof.host, 'GET', '/uninstall?title_id=' + encodeURIComponent(titleId), null, 30000);
+        if (dr) {
+          const text = String(dr.body || '').trim();
+          const ok = dr.status === 200 && !/FAILED/i.test(text);
+          sendJson(res, 200, { ok, message: ok ? `Uninstalled ${titleId}` : (text.slice(0, 300) || 'the installer refused the uninstall'), via: 'dpi' });
+          return true;
+        }
+      } catch (e) { /* the DPI is not loaded — fall through to the error below */ }
+    }
+
+    return bad(502, 'the console could not uninstall through zftpd, and the DPI installer is not answering — load the DPI payload and try again');
   }
 
   // Launch an installed game on a zftpd console (its games admin API /api/admin/launch).
