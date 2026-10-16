@@ -1,6 +1,6 @@
 {
   "name": "shadowpkg-server",
-  "version": "1.0.31",
+  "version": "1.0.32",
   "private": true,
   "description": "Server-side dependency manifest for ShadowPKG. The app itself is Node stdlib only, with one deliberate exception: basic-ftp, used for the FTP-connected-console feature (see the Dockerfile's top comment).",
   "dependencies": {

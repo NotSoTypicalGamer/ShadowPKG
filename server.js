@@ -5739,6 +5739,13 @@ async function attemptInstall(prof, pkgUrl, pathGiven, platform) {
   if (prof.installer !== 'rpi' && was && Date.now() - was < UNREACHABLE_HOLD_MS) {
     return { ok: false, quiet: true, payload: { ok: false, url: pkgUrl, error: `Could not reach ${prof.name} at ${prof.host} a moment ago, so this was not tried: wake it, check the address, and send again.` } };
   }
+  // A console running zftpd with its HTTP layer installs through it, and that is a
+  // different address (its FTP host/port) from the DPI host above, so it is handled
+  // here rather than by one of the DPI drivers below.
+  if (prof.ftpHost) {
+    const z = await zftpdProbe(prof);
+    if (z.present) return await zftpdInstall(prof, pkgUrl, z.port);
+  }
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       let d = detected.get(prof.host);
@@ -10309,6 +10316,25 @@ async function zftpdGetAfterAnother(host, port, pathName, timeout, method = 'GET
   let r = await httpJson(host, port, pathName, timeout, method);
   if (!r) { await sleep(800); r = await httpJson(host, port, pathName, timeout, method); }
   return r;
+}
+
+// Install a package on a console through zftpd's games admin API: the console
+// downloads the link itself and installs it, exactly like the DPIv2 drivers do.
+// Returns the same shape as a DRIVERS[].install() result so the send flow treats
+// it identically.
+async function zftpdInstall(prof, pkgUrl, port) {
+  const p = port || prof.ftpPort || 2121;
+  const pathName = '/api/admin/games/install?url=' + encodeURIComponent(pkgUrl);
+  await sleep(300);
+  let r = await httpJsonAny(prof.ftpHost, p, pathName, 30000, 'POST');
+  if (!r) { await sleep(800); r = await httpJsonAny(prof.ftpHost, p, pathName, 30000, 'POST'); }
+  const j = r && r.json;
+  if (!j) return { ok: false, status: r ? r.status : 0, reply: null, payload: { ok: false, url: pkgUrl, profile: prof.name, installer: 'zftpd', error: `${prof.name} (zftpd) did not answer the install request.` } };
+  if (j.ok === true) {
+    console.log(`${new Date().toISOString()} install queued on ${prof.name} (zftpd) ${pkgUrl} -> ${j.message || 'Install started'}${j.title_id ? ' (' + j.title_id + ')' : ''}`);
+    return { ok: true, status: r.status, reply: j, payload: { ok: true, url: pkgUrl, profile: prof.name, installer: 'zftpd', ps5: j } };
+  }
+  return { ok: false, status: r.status, reply: j, payload: { ok: false, url: pkgUrl, profile: prof.name, installer: 'zftpd', error: `${prof.name} (zftpd) replied: ${j.message || j.error || JSON.stringify(j)}` } };
 }
 const zftpdCache = new Map();      // profile id -> { at, result }
 async function zftpdProbe(prof, force) {
