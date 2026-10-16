@@ -10095,6 +10095,110 @@ async function ftpWalk(prof, rootRel) {
   return { files, dirs, links, bytes, truncated };
 }
 
+// ---- Save-data backups ---------------------------------------------------------
+// A console's save data — PS4 saves under /user/home/<uid>/savedata/<title id> and
+// PS5 saves under /user/home/<uid>/savedata_prospero/<title id> — can be pulled to
+// this server and pushed back, so a console wipe or a bad install doesn't take the
+// saves with it. Each backup is a folder under CONFIG_DIR/saves/<id>/ holding the
+// save's own files plus a small shadowpkg-save.json describing what and where it was.
+const SAVES_DIR = path.join(CONFIG_DIR, 'saves');
+const SAVE_META = 'shadowpkg-save.json';
+const SAVE_UID_RE = /^[0-9a-f]{8}$/i;      // a console user id, e.g. 1e025929
+const SAVE_TITLE_RE = /^[A-Z]{4}\d{5}$/;   // a title id, e.g. CUSA12345 or PPSA12345
+const SAVE_KINDS = ['savedata', 'savedata_prospero'];
+
+// The files under a local backup folder, depth-first, as absolute paths — the save's
+// own metadata file is never part of the save itself.
+function walkLocalSave(id) {
+  const root = path.join(SAVES_DIR, id), out = [], todo = [root];
+  while (todo.length) {
+    const here = todo.pop();
+    let ents; try { ents = fs.readdirSync(here, { withFileTypes: true }); } catch { continue; }
+    for (const e of ents) {
+      if (e.name === SAVE_META) continue;
+      const full = path.join(here, e.name);
+      if (e.isDirectory()) todo.push(full); else if (e.isFile()) out.push(full);
+    }
+  }
+  return out;
+}
+// A backup's metadata, or null when that id is not a real backup. Only the fields the
+// restore path needs are trusted here; everything else is re-read from disk.
+function readSaveMeta(id) {
+  if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,40}$/.test(id)) return null;
+  const f = readJsonFile(path.join(SAVES_DIR, id, SAVE_META));
+  if (!f || typeof f.uid !== 'string' || typeof f.kind !== 'string' || typeof f.titleId !== 'string') return null;
+  if (!SAVE_UID_RE.test(f.uid) || !SAVE_KINDS.includes(f.kind) || !SAVE_TITLE_RE.test(f.titleId)) return null;
+  return f;
+}
+function saveBackups() {
+  let ids = []; try { ids = fs.readdirSync(SAVES_DIR); } catch { return []; }
+  return ids.map(readSaveMeta).filter(Boolean).sort((a, b) => String(b.at).localeCompare(String(a.at)));
+}
+// The saves a console holds, read-only: each user account's savedata and
+// savedata_prospero folders, one entry per title id.
+async function listConsoleSaves(prof) {
+  let uids = [];
+  try {
+    uids = (await ftpList(prof, 'user/home')).filter(e => e.isDir && SAVE_UID_RE.test(e.name)).map(e => e.name);
+  } catch (e) { return { error: `could not read the console's user folder: ${ftpErr(e)}` }; }
+  const saves = [];
+  for (const uid of uids) {
+    for (const kind of SAVE_KINDS) {
+      let entries = [];
+      try { entries = await ftpList(prof, `user/home/${uid}/${kind}`); } catch { continue; }
+      for (const e of entries) {
+        if (!e.isDir || !SAVE_TITLE_RE.test(e.name)) continue;
+        saves.push({ uid, kind, titleId: e.name, path: e.path });
+      }
+    }
+  }
+  return { uids, saves };
+}
+// Pull one save folder off the console into CONFIG_DIR/saves. Downloads file by file
+// through the shared serialized FTP connection, so it never races another operation.
+async function backupSave(prof, uid, kind, titleId) {
+  const fullRel = `user/home/${uid}/${kind}/${titleId}`;
+  const walk = await ftpWalk(prof, fullRel);
+  if (walk.abort) return { error: walk.abort };
+  if (!walk.files.length) return { error: 'that save folder is empty or does not exist' };
+  const id = newId(), dir = path.join(SAVES_DIR, id);
+  fs.mkdirSync(dir, { recursive: true });
+  let bytes = 0;
+  try {
+    for (const f of walk.files) {
+      const rel = f.slice(fullRel.length + 1);
+      const dst = path.join(dir, rel);
+      fs.mkdirSync(path.dirname(dst), { recursive: true });
+      await withFtp(prof, client => client.downloadTo(dst, ftpPathOf(f)), FTP_TRANSFER_TIMEOUT_MS);
+      bytes += Number(fs.statSync(dst).size) || 0;
+    }
+    fs.writeFileSync(path.join(dir, SAVE_META), JSON.stringify({
+      id, consoleId: prof.id, consoleName: prof.name, uid, kind, titleId,
+      bytes, files: walk.files.length, at: new Date().toISOString(),
+    }));
+  } catch (e) {
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch {}
+    return { error: `the backup was interrupted: ${ftpErr(e)}` };
+  }
+  return { ok: true, id, bytes, files: walk.files.length };
+}
+// Push a backed-up save back to its original user + kind + title id on the target
+// console, creating parent folders as needed.
+async function restoreSave(prof, backup) {
+  const fullRel = `user/home/${backup.uid}/${backup.kind}/${backup.titleId}`;
+  const files = walkLocalSave(backup.id);
+  for (const f of files) {
+    const rel = path.relative(path.join(SAVES_DIR, backup.id), f).split(path.sep).join('/');
+    await withFtp(prof, async client => {
+      const parent = ftpParentOf(`${fullRel}/${rel}`);
+      if (parent) { try { await client.ensureDir(ftpPathOf(parent)); } catch {} }
+      await client.uploadFrom(f, ftpPathOf(`${fullRel}/${rel}`));
+    }, FTP_TRANSFER_TIMEOUT_MS);
+  }
+  return { ok: true, files: files.length };
+}
+
 // Cheap, partial extra layer on top of the direct-name block above: after
 // walking a folder marked for delete, if ANY entry found at ANY depth is
 // itself named like a blocked system folder, the whole delete is aborted
@@ -10706,6 +10810,47 @@ async function handleFtpRoute(req, res, url, p) {
     if (!z.present) return bad(409, 'this console is not running zftpd with its HTTP layer — load the zhttp build and try again');
     const r = await zftpdGetAfterAnother(prof.ftpHost, prof.ftpPort || 2121, enable ? '/api/dns/enable' : '/api/dns/disable', 8000, 'POST');
     if (!r) return bad(502, 'the console did not answer the DNS request');
+    sendJson(res, 200, r);
+    return true;
+  }
+
+  // ---- Save-data backups (console <-> this server) -------------------------------
+  if (req.method === 'GET' && p === '/api/ftp/saves') {
+    const prof = findFtpSource(url.searchParams.get('src'));
+    if (!prof) return bad(404, 'FTP console not found');
+    const s = await listConsoleSaves(prof);
+    if (s.error) return bad(502, s.error);
+    sendJson(res, 200, s);
+    return true;
+  }
+
+  if (req.method === 'POST' && p === '/api/ftp/saves/backup') {
+    const prof = findFtpSource(url.searchParams.get('src'));
+    if (!prof) return bad(404, 'FTP console not found');
+    const got = await readJson(req, 1 << 12);
+    if (got.error) return bad(got.status, got.error);
+    const uid = String((got.body && got.body.uid) || '').toLowerCase();
+    const kind = String((got.body && got.body.kind) || '');
+    const titleId = String((got.body && got.body.titleId) || '').toUpperCase();
+    if (!SAVE_UID_RE.test(uid)) return bad(400, 'a valid user id is required');
+    if (!SAVE_KINDS.includes(kind)) return bad(400, 'a valid save kind is required (savedata or savedata_prospero)');
+    if (!SAVE_TITLE_RE.test(titleId)) return bad(400, 'a valid title id is required (like CUSA12345)');
+    const r = await backupSave(prof, uid, kind, titleId);
+    if (r.error) return bad(502, r.error);
+    sendJson(res, 200, r);
+    return true;
+  }
+
+  if (req.method === 'POST' && p === '/api/ftp/saves/restore') {
+    const prof = findFtpSource(url.searchParams.get('src'));
+    if (!prof) return bad(404, 'FTP console not found');
+    const got = await readJson(req, 1 << 12);
+    if (got.error) return bad(got.status, got.error);
+    const id = String((got.body && got.body.id) || '');
+    const backup = readSaveMeta(id);
+    if (!backup) return bad(404, 'no such backup');
+    const r = await restoreSave(prof, backup);
+    if (r.error) return bad(502, r.error);
     sendJson(res, 200, r);
     return true;
   }
@@ -12637,6 +12782,19 @@ const server = http.createServer(async (req, res) => {
         }
       }));
       return sendJson(res, 200, Object.fromEntries(results));
+    }
+
+    // Local save-data backups (made by the /api/ftp/saves/backup route): list and delete.
+    if (req.method === 'GET' && p === '/api/saves') {
+      sendJson(res, 200, { backups: saveBackups() });
+      return;
+    }
+    if (req.method === 'DELETE' && (m = /^\/api\/saves\/([^/]+)$/.exec(p))) {
+      let id = ''; try { id = decodeURIComponent(m[1]); } catch {}
+      if (!readSaveMeta(id)) return sendJson(res, 404, { error: 'no such backup' });
+      try { fs.rmSync(path.join(SAVES_DIR, id), { recursive: true, force: true }); } catch { return sendJson(res, 500, { error: 'could not delete the backup' }); }
+      sendJson(res, 200, { ok: true });
+      return;
     }
 
     // Is this PS5's installer actually working? Nothing is installed either way.

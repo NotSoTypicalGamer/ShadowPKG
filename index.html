@@ -2367,6 +2367,18 @@
   </div>
 </dialog>
 
+<dialog id="savesDlg" aria-labelledby="savesTitle">
+  <div class="dlg-head">
+    <h2 id="savesTitle">Save data</h2>
+    <button class="ghost pb pb-o" id="savesClose" type="button">Close</button>
+  </div>
+  <div class="dlg-body">
+    <div class="sendsum" id="savesSum"></div>
+    <div class="formerr" id="savesErr"></div>
+    <div id="savesBody"></div>
+  </div>
+</dialog>
+
 <dialog id="xferDlg">
   <div class="dlg-head">
     <h2 id="xferTitle">Copy</h2>
@@ -2633,7 +2645,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.0.32';
+const APP_VERSION = '1.0.33';
 $('appVer').textContent = 'v' + APP_VERSION;
 const ICON_DIR = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 const CHEV = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
@@ -2920,7 +2932,10 @@ function renderProfiles() {
         const sys = el('button', 'ghost', 'System'); sys.type = 'button';
         sys.title = "This console's CPU temperature, memory and the zftpd DNS filter.";
         sys.onclick = e => { e.stopPropagation(); openSystemDlg(fid, p); };
-        row.append(eject, notify, sys);
+        const saves = el('button', 'ghost', 'Saves'); saves.type = 'button';
+        saves.title = "Back up this console's save data and restore it later.";
+        saves.onclick = e => { e.stopPropagation(); openSavesDlg(fid, p); };
+        row.append(eject, notify, sys, saves);
       }
     }
     // ps5-tailscale: asked once whether this console has a config.json; if so, offer the
@@ -6936,6 +6951,88 @@ function renderSystem(j, disk, inst) {
 }
 $('sysClose').onclick = () => $('sysDlg').close();
 closeOnBackdrop($('sysDlg'));
+
+// ---- Save data (back up and restore a console's saves) --------------------------
+let savesState = null;
+async function openSavesDlg(src, prof) {
+  savesState = { src, prof };
+  $('savesSum').textContent = `${prof.name} (${prof.host})`;
+  $('savesErr').textContent = '';
+  $('savesBody').replaceChildren(el('div', 'sendsum', 'Reading…'));
+  $('savesDlg').showModal();
+  try {
+    const [cons, backups] = await Promise.all([
+      api('GET', 'api/ftp/saves?src=' + encodeURIComponent(src)),
+      api('GET', 'api/saves'),
+    ]);
+    renderSaves(cons, backups);
+  } catch (e) {
+    $('savesErr').textContent = e.message;
+    $('savesBody').replaceChildren();
+  }
+}
+const saveKindName = k => k === 'savedata' ? 'PS4' : 'PS5';
+function renderSaves(cons, backups) {
+  const box = $('savesBody'); box.replaceChildren();
+  if (cons && cons.error) { $('savesErr').textContent = cons.error; return; }
+  const saves = cons && Array.isArray(cons.saves) ? cons.saves : [];
+  if (saves.length) {
+    box.append(el('div', 'syshead', 'On the console'));
+    for (const s of saves) {
+      const r = el('div', 'sysrow');
+      r.append(el('span', 'sk', s.titleId + ' · ' + saveKindName(s.kind)), el('span', 'sv', s.uid));
+      const b = el('button', 'ghost pb pb-s', 'Back up');
+      b.type = 'button';
+      b.title = `Download ${s.titleId}'s save to this server`;
+      b.onclick = async () => {
+        b.disabled = true;
+        try {
+          const j = await api('POST', 'api/ftp/saves/backup?src=' + encodeURIComponent(savesState.src), { uid: s.uid, kind: s.kind, titleId: s.titleId });
+          showNote(j && j.ok ? `Backed up ${s.titleId} (${fmtSize(j.bytes)})` : 'Backup failed: ' + (j.error || ''), j && j.ok ? 'ok' : 'err');
+          if (j && j.ok) openSavesDlg(savesState.src, savesState.prof);
+        } catch (e) { showNote('Backup failed: ' + e.message, 'err'); b.disabled = false; }
+      };
+      r.append(b);
+      box.append(r);
+    }
+  } else {
+    box.append(el('div', 'sendsum', 'No saves found on this console.'));
+  }
+  const list = backups && Array.isArray(backups.backups) ? backups.backups : [];
+  box.append(el('div', 'syshead', 'Backed up here'));
+  if (!list.length) { box.append(el('div', 'sendsum', 'Nothing backed up yet.')); return; }
+  for (const bk of list) {
+    const r = el('div', 'sysrow');
+    r.append(el('span', 'sk', `${bk.titleId} · ${saveKindName(bk.kind)} · ${bk.consoleName || ''}`), el('span', 'sv', (bk.at ? new Date(bk.at).toLocaleString() : '') + (bk.bytes ? ' · ' + fmtSize(bk.bytes) : '')));
+    const rs = el('button', 'ghost pb pb-s', 'Restore');
+    rs.type = 'button';
+    rs.title = `Upload ${bk.titleId}'s save back to ${savesState.prof.name} (overwrites the console's copy)`;
+    rs.onclick = async () => {
+      if (!confirm(`Restore ${bk.titleId} to ${savesState.prof.name}? It overwrites the save currently on the console.`)) return;
+      rs.disabled = true;
+      try {
+        const j = await api('POST', 'api/ftp/saves/restore?src=' + encodeURIComponent(savesState.src), { id: bk.id });
+        showNote(j && j.ok ? `Restored ${bk.titleId} (${j.files} files)` : 'Restore failed: ' + (j.error || ''), j && j.ok ? 'ok' : 'err');
+      } catch (e) { showNote('Restore failed: ' + e.message, 'err'); rs.disabled = false; }
+    };
+    const del = el('button', 'ghost pb pb-s', 'Delete');
+    del.type = 'button';
+    del.title = `Delete this local backup of ${bk.titleId} (does not touch the console)`;
+    del.onclick = async () => {
+      if (!confirm(`Delete the local backup of ${bk.titleId}? The save on the console is not touched.`)) return;
+      del.disabled = true;
+      try {
+        await api('DELETE', 'api/saves/' + encodeURIComponent(bk.id));
+        showNote('Backup deleted.', 'ok');
+        openSavesDlg(savesState.src, savesState.prof);
+      } catch (e) { showNote('Delete failed: ' + e.message, 'err'); del.disabled = false; }
+    };
+    r.append(rs, del);
+    box.append(r);
+  }
+}
+$('savesClose').onclick = () => $('savesDlg').close();
+closeOnBackdrop($('savesDlg'));
 
 // ---- DLC for another region ------------------------------------------------------------------------------
 // The DLC selected is rebuilt by the builder as the same DLC of another release of the same game: the 16-character
