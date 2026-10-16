@@ -1659,6 +1659,11 @@
   .row.member::before { content: ''; position: absolute; left: 14px; top: 0; bottom: 0; width: 2px; background: var(--line); }
   .row.member.sel::before { background: var(--sel-muted); }
   .chip.ok { background: transparent; color: var(--panel-ok); border-color: var(--panel-ok); }
+  /* The FTP-kind chip gets a solid fill so "zFTPd" stays readable on any theme's panel,
+     where the transparent .ok green can wash out. Mixed case is deliberate — the base
+     chip's uppercase would mangle the payload's name. */
+  .chip.zftp { background: #0d7a3f; color: #eafff3; border-color: transparent; text-transform: none; }
+  .chip.zftp-http { background: #1e5bb8; color: #eaf1ff; border-color: transparent; text-transform: none; }
   .chip.mute { background: transparent; color: var(--panel-muted); border-color: var(--line); }
   /* A chip on a package row labels it rather than warns about it, so it borrows
      the row's own colours — including when the row is selected. */
@@ -2594,7 +2599,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.0.25';
+const APP_VERSION = '1.0.26';
 $('appVer').textContent = 'v' + APP_VERSION;
 const ICON_DIR = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 const CHEV = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
@@ -4765,7 +4770,8 @@ function setFtpChip(chip, id) {
   const isZ = !!(z && z.ftpZftpd);          // the FTP port is a zftpd (banner), HTTP or not
   const isHttp = !!(z && z.present);        // zftpd's HTTP layer is reachable too
   chip.textContent = isZ ? (isHttp ? 'zFTPd-HTTP' : 'zFTPd') : 'FTP';
-  chip.classList.toggle('ok', isZ);
+  chip.classList.toggle('zftp', isZ && !isHttp);
+  chip.classList.toggle('zftp-http', isZ && isHttp);
   chip.title = !isZ ? '' : isHttp
     ? 'This console runs zftpd with its HTTP layer (version ' + z.version + ')'
     : 'This console\u2019s FTP is zftpd — the HTTP layer is not loaded, so Eject, Notify, drives and uninstall are unavailable';
