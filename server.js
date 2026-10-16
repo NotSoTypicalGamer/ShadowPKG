@@ -5405,7 +5405,8 @@ const DRIVERS = {
     async install(host, pkgUrl) {
       const r = await ps5Request(host, 'POST', '/api/install', JSON.stringify({ url: pkgUrl }));
       let reply; try { reply = JSON.parse(r.body); } catch { reply = r.body; }
-      return { ok: r.status === 200 && reply && reply.res === '0', status: r.status, reply };
+      const ok = r.status === 200 && reply && reply.res === '0';
+      return { ok, status: r.status, reply, hint: ok ? null : dpiHint(typeof reply === 'string' ? reply : JSON.stringify(reply)) };
     },
     // Only a request that never reached the console is repeated: a reply that is merely slow
     // may already have queued the install, and a second one would queue it twice.
@@ -5426,7 +5427,8 @@ const DRIVERS = {
         `--${boundary}--\r\n`;
       const r = await ps5Request(host, 'POST', '/upload', body, 60000, `multipart/form-data; boundary=${boundary}`);
       const text = r.body.trim();
-      return { ok: r.status === 200 && text.includes('SUCCESS') && !text.includes('FAILED'), status: r.status, reply: text.slice(0, 500) };
+      const ok = r.status === 200 && text.includes('SUCCESS') && !text.includes('FAILED');
+      return { ok, status: r.status, reply: text.slice(0, 500), hint: ok ? null : dpiHint(text) };
     },
     retryAfter: e => UNREACHABLE.includes(e && e.code),
     noReply: 'the installer did not answer in time. It may have queued the install anyway, so look in its Downloads queue before sending again',
@@ -5514,6 +5516,22 @@ function rpiHint(reply) {
   if (/Invalid package format/i.test(reply.error || '')) return 'the PS4 only installs PS4 packages, and this is not one';
   if (/Unexpected total file size/i.test(reply.error || '')) return 'the pieces of a split package are missing or out of order';
   if (/Unable to download package header/i.test(reply.error || '')) return 'the PS4 could not download the package from ShadowPKG: check that the address in the setup panel (PUBLIC_BASE) is one the PS4 can reach';
+  return null;
+}
+
+// PS5 installer (etaHEN/Elf DPI) error signatures, in the text the payload sends
+// back, turned into something a person can act on. The reply is a free-form string
+// like "FAILED: Install failed with error SCE_PLAYGO_ERROR_CORE_DEVICE_NOSPC, code
+// -2135813884 (0x80B21104)…", so these match on the NAME and the hex code, not on
+// any one exact wording. Order matters: first match wins.
+const DPI_ERROR_HINTS = [
+  [/NOSPC|NO_SPACE|DEVICE_NOSPC|0x80B21104/i, 'the console does not have enough free space — uninstall something or clear its Downloads queue, then send again'],
+  [/TIMEOUT|HTTP_ERROR_TIMEOUT|0x80431068/i, 'the console could not download the link in time — check that the address it was given (PUBLIC_BASE) is reachable from the console'],
+  [/0x80F0[0-9A-Fa-f]{4}/i, 'the console rejected the package as the wrong format or region for this console'],
+];
+function dpiHint(reply) {
+  const text = String(reply || '');
+  for (const [re, msg] of DPI_ERROR_HINTS) if (re.test(text)) return msg;
   return null;
 }
 
