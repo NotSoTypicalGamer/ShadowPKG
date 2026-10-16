@@ -10328,9 +10328,12 @@ async function zftpdGetAfterAnother(host, port, pathName, timeout, method = 'GET
 async function zftpdInstall(prof, pkgUrl, port) {
   const p = port || prof.ftpPort || 2121;
   const pathName = '/api/admin/games/install?url=' + encodeURIComponent(pkgUrl);
+  // GET rather than POST: zftpd's install endpoint accepts both, but only POST is
+  // behind its CSRF check (a token only its own web page knows), so GET is the one
+  // a non-browser caller can pass.
   await sleep(300);
-  let r = await httpJsonAny(prof.ftpHost, p, pathName, 30000, 'POST');
-  if (!r) { await sleep(800); r = await httpJsonAny(prof.ftpHost, p, pathName, 30000, 'POST'); }
+  let r = await httpJsonAny(prof.ftpHost, p, pathName, 30000, 'GET');
+  if (!r) { await sleep(800); r = await httpJsonAny(prof.ftpHost, p, pathName, 30000, 'GET'); }
   const j = r && r.json;
   if (!j) return { ok: false, status: r ? r.status : 0, reply: null, payload: { ok: false, url: pkgUrl, profile: prof.name, installer: 'zftpd', error: `${prof.name} (zftpd) did not answer the install request.` } };
   if (j.ok === true) {
