@@ -987,6 +987,8 @@
   .sysrow.dnsrow button { margin-left: auto; }
   .syssec { margin-top: 8px; }
   .syshead { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 4px 2px; }
+  .savetools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 4px 2px 8px; }
+  .savetools button.on { background: var(--sel); color: var(--sel-text); }
   .xferCrumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; font-size: 13px; color: var(--muted); padding: 6px 2px; overflow-wrap: anywhere; }
   .xferCrumbs button { padding: 3px 6px; border-radius: 4px; background: transparent; color: var(--link); font-weight: 600; }
   .xferCrumbs button:hover { background: var(--ghost-hover); text-decoration: underline; }
@@ -2272,6 +2274,10 @@
     <h2 id="instTitle">Installed games</h2>
     <button class="ghost pb pb-o" id="instClose" type="button">Close</button>
   </div>
+  <div class="xfermode instmode">
+    <button id="instModeBtn" class="on" type="button">Installed Games</button>
+    <button id="savesModeBtn" type="button">Saves</button>
+  </div>
   <div class="dlg-body">
     <div class="oldname" id="instSum"></div>
     <div class="dlmeta" id="instDrives"></div>
@@ -2364,18 +2370,6 @@
     <div class="sendsum" id="sysSum"></div>
     <div class="formerr" id="sysErr"></div>
     <div id="sysBody"></div>
-  </div>
-</dialog>
-
-<dialog id="savesDlg" aria-labelledby="savesTitle">
-  <div class="dlg-head">
-    <h2 id="savesTitle">Save data</h2>
-    <button class="ghost pb pb-o" id="savesClose" type="button">Close</button>
-  </div>
-  <div class="dlg-body">
-    <div class="sendsum" id="savesSum"></div>
-    <div class="formerr" id="savesErr"></div>
-    <div id="savesBody"></div>
   </div>
 </dialog>
 
@@ -2645,7 +2639,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.0.34';
+const APP_VERSION = '1.0.35';
 $('appVer').textContent = 'v' + APP_VERSION;
 const ICON_DIR = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 const CHEV = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
@@ -2904,12 +2898,6 @@ function renderProfiles() {
       // then answers at once from its 15 s memory, so redrawing on it would loop without ever yielding to the page.
       if (!ftpDrivesAt.has(fid)) loadZftpd(fid).then(() => renderProfiles());
       const z = ftpDrives.get(fid);
-      // Save data is plain FTP, so this button shows for any FTP console — not only when the
-      // zftpd HTTP layer is reachable (the eject/notify/system row below).
-      const saves = el('button', 'ghost', 'Saves'); saves.type = 'button';
-      saves.title = "Back up this console's save data and restore it later.";
-      saves.onclick = e => { e.stopPropagation(); openSavesDlg(fid, p); };
-      row.append(saves);
       if (z && z.present) {
         const eject = el('button', 'ghost', 'Eject'); eject.type = 'button';
         eject.title = "Eject this console's disc (zftpd). Only shown once a drive has answered; a Digital Edition console never gets this button.";
@@ -4895,7 +4883,7 @@ function libraryMenu(src) {
     name.append(nameLine, line);
     b.append(el('span', 'ck', x.id === src ? '✓' : ''), name);
     if (x.kind === 'ftp') {
-      const row = el('div', 'mirow'), ib = el('button', 'mi instbtn', 'Installed Games');
+      const row = el('div', 'mirow'), ib = el('button', 'mi instbtn', 'Installed Games/Saves');
       ib.type = 'button'; ib.title = 'What ' + nameLine.firstChild.textContent + ' has installed: games, DLC and updates';
       ib.onclick = e => { e.stopPropagation(); d.open = false; openInstalled(x); };
       row.append(b, ib);
@@ -6752,10 +6740,12 @@ const instOpen = new Set();      // "src|titleId" of the cards opened, kept whil
 async function openInstalled(x, refresh) {
   const label = x.label.replace(/\s*\(FTP\)\s*$/, '');
   instState = { src: x.id, label, data: null };
+  savesData = null;
+  setInstMode('installed');          // reset the pane toggle and show the installed view's tools
   $('instTitle').textContent = 'Installed on ' + label;
   $('instErr').textContent = ''; $('instList').replaceChildren(); $('instRefresh').hidden = true; $('instDrives').textContent = '';
-  loadZftpd(x.id).then(() => { if (instState && instState.src === x.id && instState.data) renderInstalled(); });
-  $('instSum').textContent = 'Reading the console\'s list of installed titles…';
+  loadZftpd(x.id).then(() => { if (instState && instState.src === x.id && instState.data && instMode === 'installed') renderInstalled(); });
+  $('instSum').textContent = 'Reading the console\u2019s list of installed titles\u2026';
   if (!$('instDlg').open) { $('instQ').value = ''; $('instDlg').showModal(); }
   let data;
   try { data = await api('GET', `api/ftp/installed?src=${encodeURIComponent(x.id)}${refresh ? '&refresh=1' : ''}`); }
@@ -6763,7 +6753,7 @@ async function openInstalled(x, refresh) {
   if (!instState || instState.src !== x.id) return;
   instState.data = data;
   $('instRefresh').hidden = false;
-  renderInstalled();
+  if (instMode === 'installed') renderInstalled();
 }
 function renderInstalled() {
   if (!instState || !instState.data) return;
@@ -6955,87 +6945,138 @@ function renderSystem(j, disk, inst) {
 $('sysClose').onclick = () => $('sysDlg').close();
 closeOnBackdrop($('sysDlg'));
 
-// ---- Save data (back up and restore a console's saves) --------------------------
-let savesState = null;
-async function openSavesDlg(src, prof) {
-  savesState = { src, prof };
-  $('savesSum').textContent = `${prof.name} (${prof.host})`;
-  $('savesErr').textContent = '';
-  $('savesBody').replaceChildren(el('div', 'sendsum', 'Reading…'));
-  $('savesDlg').showModal();
+// ---- Save data (back up and restore a console's saves), inside the Installed dialog ----
+const saveKindName = k => k === 'savedata' ? 'PS4' : 'PS5';
+let instMode = 'installed';   // which pane of the Installed dialog is shown: 'installed' | 'saves'
+let savesData = null;         // { cons:{uids,saves}, backups:[...] } for the current console
+let savesUid = null;          // the user account selected in the Saves pane
+
+function setInstMode(mode) {
+  instMode = mode;
+  $('instModeBtn').classList.toggle('on', mode === 'installed');
+  $('savesModeBtn').classList.toggle('on', mode === 'saves');
+  // Filter / refresh / repair belong to the installed view, not the saves pane.
+  $('instTools').style.display = mode === 'installed' ? '' : 'none';
+  if (mode === 'saves') loadSavesView(); else renderInstalled();
+}
+
+async function loadSavesView() {
+  if (!instState) return;
+  const box = $('instList'); box.replaceChildren();
+  $('instSum').textContent = 'Reading the console\u2019s saves\u2026';
+  $('instErr').textContent = ''; $('instDrives').textContent = '';
   try {
     const [cons, backups] = await Promise.all([
-      api('GET', 'api/ftp/saves?src=' + encodeURIComponent(src)),
+      api('GET', 'api/ftp/saves?src=' + encodeURIComponent(instState.src)),
       api('GET', 'api/saves'),
     ]);
-    renderSaves(cons, backups);
+    if (!instState || instMode !== 'saves') return;
+    savesData = { cons, backups: (backups && backups.backups) || [] };
+    if (!savesUid || !(cons.uids || []).includes(savesUid)) savesUid = (cons.uids && cons.uids[0]) || null;
+    renderSavesView();
   } catch (e) {
-    $('savesErr').textContent = e.message;
-    $('savesBody').replaceChildren();
+    if (instState && instMode === 'saves') { $('instErr').textContent = e.message; $('instSum').textContent = ''; }
   }
 }
-const saveKindName = k => k === 'savedata' ? 'PS4' : 'PS5';
-function renderSaves(cons, backups) {
-  const box = $('savesBody'); box.replaceChildren();
-  if (cons && cons.error) { $('savesErr').textContent = cons.error; return; }
-  const saves = cons && Array.isArray(cons.saves) ? cons.saves : [];
-  if (saves.length) {
-    box.append(el('div', 'syshead', 'On the console'));
-    for (const s of saves) {
-      const r = el('div', 'sysrow');
-      r.append(el('span', 'sk', s.titleId + ' · ' + saveKindName(s.kind)), el('span', 'sv', s.uid));
-      const b = el('button', 'ghost pb pb-s', 'Back up');
-      b.type = 'button';
-      b.title = `Download ${s.titleId}'s save to this server`;
-      b.onclick = async () => {
-        b.disabled = true;
-        try {
-          const j = await api('POST', 'api/ftp/saves/backup?src=' + encodeURIComponent(savesState.src), { uid: s.uid, kind: s.kind, titleId: s.titleId });
-          showNote(j && j.ok ? `Backed up ${s.titleId} (${fmtSize(j.bytes)})` : 'Backup failed: ' + (j.error || ''), j && j.ok ? 'ok' : 'err');
-          if (j && j.ok) openSavesDlg(savesState.src, savesState.prof);
-        } catch (e) { showNote('Backup failed: ' + e.message, 'err'); b.disabled = false; }
-      };
-      r.append(b);
-      box.append(r);
+
+function renderSavesView() {
+  if (!instState || !savesData) return;
+  const box = $('instList'); box.replaceChildren();
+  const { cons, backups } = savesData;
+  if (cons.error) { $('instErr').textContent = cons.error; $('instSum').textContent = ''; return; }
+  const uids = cons.uids || [];
+  const saves = (cons.saves || []).filter(s => !savesUid || s.uid === savesUid);
+  const nameOf = titleId => {
+    const g = instState.data && instState.data.games && instState.data.games.find(x => x.titleId === titleId);
+    return g && !g.notInstalled ? g.title : null;
+  };
+  // User-account picker (several chips when the console has more than one user) + a bulk backup.
+  const tools = el('div', 'savetools');
+  if (uids.length > 1) {
+    for (const uid of uids) {
+      const c = el('button', 'ghost pb pb-s' + (uid === savesUid ? ' on' : ''), uid);
+      c.type = 'button'; c.title = `Show the saves of account ${uid}`;
+      c.onclick = () => { savesUid = uid; renderSavesView(); };
+      tools.append(c);
     }
-  } else {
-    box.append(el('div', 'sendsum', 'No saves found on this console.'));
   }
-  const list = backups && Array.isArray(backups.backups) ? backups.backups : [];
+  if (saves.length) {
+    const all = el('button', 'pb pb-s', `Back up all (${saves.length})`);
+    all.type = 'button'; all.title = 'Back up every save of the selected account to this server';
+    all.onclick = () => backupAllSaves(saves);
+    tools.append(all);
+  }
+  box.append(tools);
+  $('instSum').textContent = `${plural(saves.length, 'save', 'saves')} for ${savesUid || 'this account'}`;
+  if (!saves.length) { box.append(el('div', 'empty', 'No saves found for this account.')); }
+  for (const s of saves) {
+    const row = el('div', 'inst'), body = el('div', 'body');
+    body.append(el('div', 'ttl', nameOf(s.titleId) || s.titleId));
+    body.append(el('div', 'dlmeta', [saveKindName(s.kind), s.titleId, s.uid].join(' · ')));
+    const b = el('button', 'ghost pb pb-s', 'Back up');
+    b.type = 'button'; b.title = `Download ${nameOf(s.titleId) || s.titleId}'s save to this server`;
+    b.onclick = () => backupOneSave(s, b);
+    body.append(b); row.append(body); box.append(row);
+  }
+  // Local backups (restore / delete).
   box.append(el('div', 'syshead', 'Backed up here'));
-  if (!list.length) { box.append(el('div', 'sendsum', 'Nothing backed up yet.')); return; }
-  for (const bk of list) {
-    const r = el('div', 'sysrow');
-    r.append(el('span', 'sk', `${bk.titleId} · ${saveKindName(bk.kind)} · ${bk.consoleName || ''}`), el('span', 'sv', (bk.at ? new Date(bk.at).toLocaleString() : '') + (bk.bytes ? ' · ' + fmtSize(bk.bytes) : '')));
+  if (!backups.length) { box.append(el('div', 'empty', 'Nothing backed up yet.')); return; }
+  for (const bk of backups) {
+    const row = el('div', 'inst'), body = el('div', 'body');
+    body.append(el('div', 'ttl', `${bk.titleId} · ${saveKindName(bk.kind)}`));
+    body.append(el('div', 'dlmeta', (bk.consoleName || '') + (bk.at ? ' · ' + new Date(bk.at).toLocaleString() : '') + (bk.bytes ? ' · ' + fmtSize(bk.bytes) : '')));
     const rs = el('button', 'ghost pb pb-s', 'Restore');
-    rs.type = 'button';
-    rs.title = `Upload ${bk.titleId}'s save back to ${savesState.prof.name} (overwrites the console's copy)`;
-    rs.onclick = async () => {
-      if (!confirm(`Restore ${bk.titleId} to ${savesState.prof.name}? It overwrites the save currently on the console.`)) return;
-      rs.disabled = true;
-      try {
-        const j = await api('POST', 'api/ftp/saves/restore?src=' + encodeURIComponent(savesState.src), { id: bk.id });
-        showNote(j && j.ok ? `Restored ${bk.titleId} (${j.files} files)` : 'Restore failed: ' + (j.error || ''), j && j.ok ? 'ok' : 'err');
-      } catch (e) { showNote('Restore failed: ' + e.message, 'err'); rs.disabled = false; }
-    };
+    rs.type = 'button'; rs.title = `Upload ${bk.titleId}'s save back to this console (overwrites its copy)`;
+    rs.onclick = () => restoreSaveBackup(bk, rs);
     const del = el('button', 'ghost pb pb-s', 'Delete');
-    del.type = 'button';
-    del.title = `Delete this local backup of ${bk.titleId} (does not touch the console)`;
-    del.onclick = async () => {
-      if (!confirm(`Delete the local backup of ${bk.titleId}? The save on the console is not touched.`)) return;
-      del.disabled = true;
-      try {
-        await api('DELETE', 'api/saves/' + encodeURIComponent(bk.id));
-        showNote('Backup deleted.', 'ok');
-        openSavesDlg(savesState.src, savesState.prof);
-      } catch (e) { showNote('Delete failed: ' + e.message, 'err'); del.disabled = false; }
-    };
-    r.append(rs, del);
-    box.append(r);
+    del.type = 'button'; del.title = `Delete this local backup of ${bk.titleId} (does not touch the console)`;
+    del.onclick = () => deleteSaveBackup(bk, del);
+    body.append(rs, del); row.append(body); box.append(row);
   }
 }
-$('savesClose').onclick = () => $('savesDlg').close();
-closeOnBackdrop($('savesDlg'));
+
+async function backupOneSave(s, btn) {
+  btn.disabled = true;
+  try {
+    const j = await api('POST', 'api/ftp/saves/backup?src=' + encodeURIComponent(instState.src), { uid: s.uid, kind: s.kind, titleId: s.titleId });
+    showNote(j && j.ok ? `Backed up ${s.titleId} (${fmtSize(j.bytes)})` : 'Backup failed: ' + (j.error || ''), j && j.ok ? 'ok' : 'err');
+    if (j && j.ok) loadSavesView();
+  } catch (e) { showNote('Backup failed: ' + e.message, 'err'); btn.disabled = false; }
+}
+
+async function backupAllSaves(saves) {
+  let ok = 0, bad = 0;
+  for (const s of saves) {
+    try {
+      const j = await api('POST', 'api/ftp/saves/backup?src=' + encodeURIComponent(instState.src), { uid: s.uid, kind: s.kind, titleId: s.titleId });
+      if (j && j.ok) ok++; else bad++;
+    } catch { bad++; }
+  }
+  showNote(`Backed up ${ok}${bad ? ', ' + bad + ' failed' : ''} save${ok === 1 ? '' : 's'}.`, bad ? 'err' : 'ok');
+  loadSavesView();
+}
+
+async function restoreSaveBackup(bk, btn) {
+  if (!confirm(`Restore ${bk.titleId} to this console? It overwrites the save currently on the console.`)) return;
+  btn.disabled = true;
+  try {
+    const j = await api('POST', 'api/ftp/saves/restore?src=' + encodeURIComponent(instState.src), { id: bk.id });
+    showNote(j && j.ok ? `Restored ${bk.titleId} (${j.files} files)` : 'Restore failed: ' + (j.error || ''), j && j.ok ? 'ok' : 'err');
+  } catch (e) { showNote('Restore failed: ' + e.message, 'err'); btn.disabled = false; }
+}
+
+async function deleteSaveBackup(bk, btn) {
+  if (!confirm(`Delete the local backup of ${bk.titleId}? The save on the console is not touched.`)) return;
+  btn.disabled = true;
+  try {
+    await api('DELETE', 'api/saves/' + encodeURIComponent(bk.id));
+    showNote('Backup deleted.', 'ok');
+    loadSavesView();
+  } catch (e) { showNote('Delete failed: ' + e.message, 'err'); btn.disabled = false; }
+}
+
+$('instModeBtn').onclick = () => setInstMode('installed');
+$('savesModeBtn').onclick = () => setInstMode('saves');
 
 // ---- DLC for another region ------------------------------------------------------------------------------
 // The DLC selected is rebuilt by the builder as the same DLC of another release of the same game: the 16-character
