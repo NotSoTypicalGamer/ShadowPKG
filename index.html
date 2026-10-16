@@ -2594,7 +2594,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.0.24';
+const APP_VERSION = '1.0.25';
 $('appVer').textContent = 'v' + APP_VERSION;
 const ICON_DIR = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 const CHEV = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
@@ -4757,12 +4757,18 @@ async function loadDisc(id) {
   }
   return ftpDiscAsking.get(id);
 }
-// The chip that says how a console is reached: "zftpd" when its FTP port is one (that says FTP already), otherwise "FTP".
+// The chip that says how a console is reached: "zFTPd" when its FTP is a zftpd (the
+// 220 greeting says so, even with no HTTP layer), "zFTPd-HTTP" when the HTTP layer is
+// reachable too, otherwise "FTP".
 function setFtpChip(chip, id) {
-  const z = ftpDrives.get(id), is = !!(z && z.present);
-  chip.textContent = is ? 'zftpd' : 'FTP';
-  chip.classList.toggle('ok', is);
-  chip.title = is ? 'This console\'s FTP port is a zftpd (version ' + z.version + ')' : '';
+  const z = ftpDrives.get(id);
+  const isZ = !!(z && z.ftpZftpd);          // the FTP port is a zftpd (banner), HTTP or not
+  const isHttp = !!(z && z.present);        // zftpd's HTTP layer is reachable too
+  chip.textContent = isZ ? (isHttp ? 'zFTPd-HTTP' : 'zFTPd') : 'FTP';
+  chip.classList.toggle('ok', isZ);
+  chip.title = !isZ ? '' : isHttp
+    ? 'This console runs zftpd with its HTTP layer (version ' + z.version + ')'
+    : 'This console\u2019s FTP is zftpd — the HTTP layer is not loaded, so Eject, Notify, drives and uninstall are unavailable';
 }
 const ftpChip = id => { const c = el('span', 'chip', 'FTP'); setFtpChip(c, id); return c; };
 function zftpdLine(z) {

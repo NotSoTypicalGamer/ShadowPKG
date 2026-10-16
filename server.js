@@ -9871,6 +9871,33 @@ function ftpPortsOf(prof) {
   for (const p of [prof.ftpPort, 2121, 2120]) if (p && !out.includes(p)) out.push(p);
   return out;
 }
+// zftpd's FTP answers its 220 greeting with "Service ready for new user.", while
+// ftpsrv/etaHEN's announces "ftpsrv.elf ...". Reading the greeting is the only way
+// to tell a zftpd FTP-only build (no HTTP) apart from plain FTP, so the chip can
+// say "zFTPd" for it even without the HTTP layer.
+function ftpBanner(host, port) {
+  return new Promise(resolve => {
+    const sock = net.connect({ host, port });
+    sock.setTimeout(3000);
+    let settled = false;
+    const done = v => { if (!settled) { settled = true; sock.destroy(); resolve(v); } };
+    sock.once('connect', () => sock.once('data', d => done(String(d))));
+    sock.on('error', () => done(null));
+    sock.on('timeout', () => done(null));
+  });
+}
+const ftpBannerCache = new Map();    // profile id -> { at, zftpd }
+async function ftpBannerIsZftpd(prof) {
+  const hit = ftpBannerCache.get(prof.id);
+  if (hit && Date.now() - hit.at < 60000) return hit.zftpd;
+  let zftpd = false;
+  for (const port of ftpPortsOf(prof)) {
+    const b = await ftpBanner(prof.ftpHost, port);
+    if (b) { zftpd = /Service ready for new user/i.test(b); break; }
+  }
+  ftpBannerCache.set(prof.id, { at: Date.now(), zftpd });
+  return zftpd;
+}
 function closeFtpConn(profileId) {
   const c = ftpConns.get(profileId);
   if (!c) return;
@@ -10436,7 +10463,11 @@ async function handleFtpRoute(req, res, url, p) {
   if (req.method === 'GET' && p === '/api/ftp/zftpd') {
     const prof = findFtpSource(url.searchParams.get('src'));
     if (!prof) return bad(404, 'FTP console not found');
-    sendJson(res, 200, await zftpdProbe(prof, !!url.searchParams.get('refresh')));
+    const [z, ftpZftpd] = await Promise.all([
+      zftpdProbe(prof, !!url.searchParams.get('refresh')),
+      ftpBannerIsZftpd(prof),
+    ]);
+    sendJson(res, 200, { ...z, ftpZftpd });
     return true;
   }
 
