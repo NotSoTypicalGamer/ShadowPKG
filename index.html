@@ -970,6 +970,13 @@
   #githubRel .arow + .arow { border-top: 1px solid var(--line); }
   #githubRel .fname { flex: 1; min-width: 0; overflow-wrap: anywhere; }
   #githubRel .muted { color: var(--muted); flex: none; }
+  /* Recommended repos: name + reason, one click fetches it. */
+  #githubRec { max-height: 20vh; overflow-y: auto; }
+  #githubRec .recrow { display: flex; flex-direction: column; gap: 2px; padding: 7px 10px; }
+  #githubRec .recrow + .recrow { border-top: 1px solid var(--line); }
+  #githubRec .recname { align-self: flex-start; background: transparent; border: 0; color: var(--link); font-weight: 600; padding: 0; text-align: left; }
+  #githubRec .recname:hover { text-decoration: underline; }
+  #githubRec .recreason { color: var(--muted); font-size: 12px; }
   /* Console system dialog: label/value rows plus the DNS toggle. */
   .sysgrid { margin: 8px 0; }
   .sysrow { display: flex; align-items: center; gap: 10px; padding: 8px 2px; }
@@ -2339,6 +2346,9 @@
       <button class="pb pb-s" type="submit">Fetch release</button>
     </form>
     <div class="formerr" id="githubErr"></div>
+    <div class="field" id="githubRecField" hidden>Recommended
+      <div class="panel" id="githubRec"></div>
+    </div>
     <div id="githubRel"></div>
   </div>
 </dialog>
@@ -2620,7 +2630,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.0.29';
+const APP_VERSION = '1.0.30';
 $('appVer').textContent = 'v' + APP_VERSION;
 const ICON_DIR = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 const CHEV = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
@@ -3156,8 +3166,30 @@ function openGithubDialog(repo) {
   $('githubErr').textContent = '';
   $('githubRel').replaceChildren();
   $('githubDlg').showModal();
-  if (!githubRepo) $('githubRepo').focus();
+  if (!githubRepo) { $('githubRepo').focus(); loadRecommended(); }
   else $('githubForm').dispatchEvent(new Event('submit', { cancelable: true }));
+}
+
+// The curated "recommended" repos (GET /api/github/recommended), shown when the dialog
+// is opened without a repo — a one-click shortcut to the well-known payload sources.
+async function loadRecommended() {
+  try { renderRecommended((await api('GET', 'api/github/recommended')).repos || []); }
+  catch { renderRecommended([]); }
+}
+function renderRecommended(repos) {
+  const box = $('githubRec'), field = $('githubRecField');
+  box.replaceChildren();
+  field.hidden = !repos.length;
+  for (const r of repos) {
+    const row = el('div', 'recrow');
+    const b = el('button', 'recname', r.repo + (r.build ? ' · ' + r.build : ''));
+    b.type = 'button';
+    b.title = (r.reason ? r.reason + ' ' : '') + '— fetch this repo\u2019s latest release';
+    b.onclick = () => openGithubDialog(r.repo);
+    row.append(b);
+    if (r.reason) { const rs = el('span', 'recreason', r.reason); rs.title = r.reason; row.append(rs); }
+    box.append(row);
+  }
 }
 
 function renderGithubRelease(rel) {

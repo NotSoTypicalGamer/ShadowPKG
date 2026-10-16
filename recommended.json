@@ -1,0 +1,15 @@
+[
+  {
+    "repo": "seregonwar/zftpd",
+    "reason": "The console FTP + HTTP server — unlocks free space, eject, notify, launch/uninstall and the DNS filter.",
+    "build": "zhttp"
+  },
+  {
+    "repo": "NotSoTypicalGamer/DPIv2-Standalone-13.60",
+    "reason": "Standalone DPI — install and uninstall PKGs from SPKG."
+  },
+  {
+    "repo": "etaHEN/etaHEN",
+    "reason": "The full all-in-one HEN payload."
+  }
+]

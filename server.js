@@ -9813,6 +9813,20 @@ async function checkGithubWatch() {
 }
 setInterval(() => { checkGithubWatch().catch(() => {}); }, 12 * 60 * 60 * 1000).unref?.();
 
+// Curated "recommended" repos shown in the GitHub dialog, each with a reason. The
+// list ships in the repo (recommended.json, next to server.js); a CONFIG_DIR/
+// recommended.json, when present, replaces it so the owner can curate without a code
+// change.
+const RECOMMENDED_OVERRIDE = path.join(CONFIG_DIR, 'recommended.json');
+let recommendedRepos = [];
+try {
+  const f = fs.existsSync(RECOMMENDED_OVERRIDE) ? RECOMMENDED_OVERRIDE : path.join(__dirname, 'recommended.json');
+  const j = JSON.parse(fs.readFileSync(f, 'utf8'));
+  if (Array.isArray(j)) recommendedRepos = j
+    .filter(x => x && typeof x.repo === 'string' && GH_REPO_RE.test(x.repo))
+    .map(x => ({ repo: x.repo, reason: typeof x.reason === 'string' ? x.reason : '', build: typeof x.build === 'string' ? x.build : '' }));
+} catch {}
+
 // ---- Profiles with an FTP source ----------------------------------------------
 // Fields that carry "not set" as null are dropped rather than saved, so a profile
 // stays a plain record of what was actually configured. FTP and the payload loader
@@ -12634,6 +12648,10 @@ const server = http.createServer(async (req, res) => {
     // stored-payloads folder, and keep/watch a list of repos to re-check for newer tags.
     if (req.method === 'GET' && p === '/api/github/release') {
       return sendJson(res, 200, await githubRelease(String(url.searchParams.get('repo') || '').trim()));
+    }
+
+    if (req.method === 'GET' && p === '/api/github/recommended') {
+      return sendJson(res, 200, { repos: recommendedRepos });
     }
 
     if (req.method === 'POST' && p === '/api/github/save') {
