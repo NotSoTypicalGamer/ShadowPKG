@@ -5741,10 +5741,13 @@ async function attemptInstall(prof, pkgUrl, pathGiven, platform) {
   }
   // A console running zftpd with its HTTP layer installs through it, and that is a
   // different address (its FTP host/port) from the DPI host above, so it is handled
-  // here rather than by one of the DPI drivers below.
+  // here rather than by one of the DPI drivers below. Only builds compiled with
+  // pkg-install support (features.pkg_install) can do this; the official zftpd
+  // releases ship with it off, in which case the send falls through to the DPI.
   if (prof.ftpHost) {
     const z = await zftpdProbe(prof);
-    if (z.present) return await zftpdInstall(prof, pkgUrl, z.port);
+    const canInstall = z && z.present && z.features && (z.features.pkg_install === true || z.features.pkg_install === 'true');
+    if (canInstall) return await zftpdInstall(prof, pkgUrl, z.port);
   }
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
