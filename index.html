@@ -987,10 +987,8 @@
   .sysrow.dnsrow button { margin-left: auto; }
   .syssec { margin-top: 8px; }
   .syshead { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 4px 2px; }
-  .instmode { display: flex; width: fit-content; margin: 12px auto 4px; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 10px; }
-  .instmode button { padding: 7px 18px; border: none; border-radius: 7px; background: transparent; color: var(--muted); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: color .12s ease; }
-  .instmode button:hover { color: var(--text); }
-  .instmode button.on { background: var(--sel); color: var(--sel-text); }
+  .instmode { display: flex; width: fit-content; margin: 12px auto 4px; gap: 8px; }
+  .instmode button.on { background: var(--accent); color: var(--on-accent); border: none; }
   .savetools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 4px 2px 8px; }
   .savetools button.on { background: var(--sel); color: var(--sel-text); }
   .xferCrumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; font-size: 13px; color: var(--muted); padding: 6px 2px; overflow-wrap: anywhere; }
@@ -2279,8 +2277,8 @@
     <button class="ghost pb pb-o" id="instClose" type="button">Close</button>
   </div>
   <div class="instmode">
-    <button id="instModeBtn" class="on" type="button">Installed Games</button>
-    <button id="savesModeBtn" type="button">Saves</button>
+    <button id="instModeBtn" class="ghost pb pb-o on" type="button">Installed Games</button>
+    <button id="savesModeBtn" class="ghost pb pb-o" type="button">Saves</button>
   </div>
   <div class="dlg-body">
     <div class="oldname" id="instSum"></div>
@@ -2643,7 +2641,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.0.37';
+const APP_VERSION = '1.0.38';
 $('appVer').textContent = 'v' + APP_VERSION;
 const ICON_DIR = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 const CHEV = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
