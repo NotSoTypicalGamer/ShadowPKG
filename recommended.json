@@ -1,11 +1,15 @@
 [
   {
     "repo": "seregonwar/zftpd",
-    "reason": "The console FTP + HTTP server — unlocks free space, eject, notify, launch/uninstall and the DNS filter.",
+    "reason": "The console FTP + HTTP server and SPKG's main console link — installs and uninstalls PKGs natively, plus free space, eject, notify, launch and the DNS filter. SPKG relies on it alone for every console operation.",
     "build": "zhttp"
   },
   {
+    "repo": "etaHEN/etaHEN",
+    "reason": "The full all-in-one jailbreak suite — its own DPI package installer, FTP, toolbox and more. Load this on a console where zhttp can't drive the installer itself."
+  },
+  {
     "repo": "NotSoTypicalGamer/DPIv2-Standalone-13.60",
-    "reason": "Standalone DPI — install and uninstall PKGs from SPKG."
+    "reason": "Standalone DPI — just the package installer, none of the rest of the suite. The install/uninstall fallback when zhttp isn't doing it."
   }
 ]
