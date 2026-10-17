@@ -677,6 +677,9 @@
      text-only rather than leaving an empty box or a broken-image glyph. */
   .row-cover { width: 40px; height: 40px; flex: none; border-radius: 6px; object-fit: cover; background: var(--panel-head); }
   .name { font-size: 15px; word-break: break-word; }
+  .prof .name { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+  .temp { font-size: 12px; color: var(--panel-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .prof.active .temp { color: var(--sel-muted); }
   .sub { font-size: 12px; color: var(--panel-muted); margin-top: 2px; font-variant-numeric: tabular-nums; word-break: break-word; }
   dialog .sub { color: var(--muted); }
   .panel .sub { color: var(--panel-muted); }
@@ -2375,6 +2378,18 @@
   </div>
 </dialog>
 
+<dialog id="fanDlg" aria-labelledby="fanTitle">
+  <div class="dlg-head">
+    <h2 id="fanTitle">Fan control</h2>
+    <button class="ghost pb pb-o" id="fanClose" type="button">Close</button>
+  </div>
+  <div class="dlg-body">
+    <div class="sendsum" id="fanSum"></div>
+    <div class="formerr" id="fanErr"></div>
+    <div id="fanBody"></div>
+  </div>
+</dialog>
+
 <dialog id="xferDlg">
   <div class="dlg-head">
     <h2 id="xferTitle">Copy</h2>
@@ -2641,7 +2656,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.0.45';
+const APP_VERSION = '1.0.46';
 $('appVer').textContent = 'v' + APP_VERSION;
 const ICON_DIR = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 const CHEV = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
@@ -2795,7 +2810,7 @@ const dotClass = p => p.id in online ? (online[p.id].ok ? 'ok' : appClosed(p) ? 
 const describe = p => !(p.id in online) ? 'checking…' : online[p.id].ok ? 'online · ' + (online[p.id].label || 'unknown installer') : appClosed(p) ? 'PS4 · Remote Package Installer is not open (sends wait for it)' : 'not reachable';
 let editing = null;         // profile id whose edit form is open
 let tested = {};            // profile id -> {cls, text} from the last health check
-let zftpdMsg = {};          // profile id -> {cls, text} from the last Eject or Notify press
+let zftpdMsg = {};          // profile id -> {cls, text} from the last Notify press
 const store = {
   get: k => { try { return localStorage.getItem(k); } catch { return null; } },
   set: (k, v) => { try { localStorage.setItem(k, v); } catch {} },
@@ -2869,7 +2884,11 @@ function renderProfiles() {
     const check = el('span', 'check', p.id === activeId ? '✓' : '');
     const dot = el('span', 'dot ' + dotClass(p));
     const info = el('div', 'info');
-    info.append(el('div', 'name', p.name), el('div', 'sub', p.host + ' · ' + describe(p)));
+    const nameRow = el('div', 'name');
+    nameRow.append(el('span', null, p.name));
+    const tempSpan = el('span', 'temp');
+    nameRow.append(tempSpan);
+    info.append(nameRow, el('div', 'sub', p.host + ' · ' + describe(p)));
     // Not a live connection check (that would mean opening an FTP connection just
     // to draw this list) — only whether the profile has FTP fields saved, the
     // same "set up or not" a person can see for themselves by opening Edit.
@@ -2901,19 +2920,15 @@ function renderProfiles() {
       if (!ftpDrivesAt.has(fid)) loadZftpd(fid).then(() => renderProfiles());
       const z = ftpDrives.get(fid);
       if (z && z.present) {
-        const eject = el('button', 'ghost', 'Eject'); eject.type = 'button';
-        eject.title = "Eject this console's disc (zftpd). Only shown once a drive has answered; a Digital Edition console never gets this button.";
-        eject.hidden = true;      // shown once /api/ftp/disc confirms a drive is really there
-        loadDisc(fid).then(has => { eject.hidden = !has; });
-        eject.onclick = async e => {
-          e.stopPropagation(); eject.disabled = true;
-          zftpdMsg[p.id] = { cls: 'wait', text: 'Ejecting…' }; renderProfiles();
-          try {
-            const j = await api('POST', 'api/ftp/eject', { src: fid });
-            zftpdMsg[p.id] = { cls: j.ok ? 'good' : 'bad', text: j.message || (j.ok ? 'Ejected.' : 'The console refused.') };
-          } catch (ex) { zftpdMsg[p.id] = { cls: 'bad', text: ex.message }; }
-          renderProfiles();
-        };
+        // CPU temperature beside the console's name, refreshed on a short cycle.
+        loadTemp(fid).then(t => {
+          const v = t && t.cpu_temp != null ? t.cpu_temp : null;
+          tempSpan.textContent = v != null ? v + '°C' : '';
+          tempSpan.title = v != null ? 'CPU temperature' : '';
+        }).catch(() => {});
+        const fan = el('button', 'ghost', 'Fan'); fan.type = 'button';
+        fan.title = "Set this console's fan threshold (°C). Lower spins the fan up sooner (cooler, louder); higher spins it up later (hotter, quieter).";
+        fan.onclick = e => { e.stopPropagation(); openFanDlg(fid, p); };
         const notify = el('button', 'ghost', 'Notify'); notify.type = 'button';
         notify.title = 'Show a short test message on this console (zftpd).';
         notify.onclick = async e => {
@@ -2928,7 +2943,7 @@ function renderProfiles() {
         const sys = el('button', 'ghost', 'System'); sys.type = 'button';
         sys.title = "This console's CPU temperature, memory and the zftpd DNS filter.";
         sys.onclick = e => { e.stopPropagation(); openSystemDlg(fid, p); };
-        row.append(eject, notify, sys);
+        row.append(fan, notify, sys);
       }
     }
     // ps5-tailscale: asked once whether this console has a config.json; if so, offer the
@@ -4829,6 +4844,27 @@ async function loadDisc(id) {
   }
   return ftpDiscAsking.get(id);
 }
+// A zftpd console's CPU temperature (°C), for the small "33°C" beside its name in Your consoles. Kept on a short
+// 30s cycle rather than cached forever (the temperature moves), but every caller within that window shares the one
+// in-flight request so a redraw doesn't pile requests onto a slow or off console.
+const ftpTemps = new Map();      // console id -> { cpu_temp, at }
+const ftpTempAsking = new Map(); // console id -> the one in-flight promise
+async function loadTemp(id) {
+  const hit = ftpTemps.get(id);
+  if (hit && Date.now() - hit.at < 30000) return hit;
+  if (!ftpTempAsking.has(id)) {
+    const p = (async () => {
+      let cpu_temp = null;
+      try { cpu_temp = (await api('GET', 'api/ftp/temp?src=' + encodeURIComponent(id))).cpu_temp; } catch {}
+      const out = { cpu_temp, at: Date.now() };
+      ftpTemps.set(id, out);
+      ftpTempAsking.delete(id);
+      return out;
+    })();
+    ftpTempAsking.set(id, p);
+  }
+  return ftpTempAsking.get(id);
+}
 // The chip that says how a console is reached: "zFTPd" when its FTP is a zftpd (the
 // 220 greeting says so, even with no HTTP layer), "zFTPd-HTTP" when the HTTP layer is
 // reachable too, otherwise "FTP".
@@ -4841,7 +4877,7 @@ function setFtpChip(chip, id) {
   chip.classList.toggle('zftp-http', isZ && isHttp);
   chip.title = !isZ ? '' : isHttp
     ? 'This console runs zftpd with its HTTP layer (version ' + z.version + ')'
-    : 'This console\u2019s FTP is zftpd — the HTTP layer is not loaded, so Eject, Notify, drives and uninstall are unavailable';
+    : 'This console\u2019s FTP is zftpd — the HTTP layer is not loaded, so Fan, Notify, drives and uninstall are unavailable';
 }
 const ftpChip = id => { const c = el('span', 'chip', 'FTP'); setFtpChip(c, id); return c; };
 function zftpdLine(z) {
@@ -6946,6 +6982,46 @@ function renderSystem(j, disk, inst) {
 }
 $('sysClose').onclick = () => $('sysDlg').close();
 closeOnBackdrop($('sysDlg'));
+
+// ---- Fan control (set a zftpd console's fan threshold) ------------------------
+let fanState = null;
+function openFanDlg(src, prof) {
+  fanState = { src, prof };
+  $('fanSum').textContent = `${prof.name} (${prof.host})`;
+  $('fanErr').textContent = '';
+  $('fanBody').replaceChildren();
+  $('fanDlg').showModal();
+  renderFan();
+}
+function renderFan() {
+  const box = $('fanBody'); box.replaceChildren();
+  const slide = el('input'); slide.type = 'range';
+  slide.min = '40'; slide.max = '90'; slide.step = '1'; slide.value = '65';
+  slide.style.cssText = 'flex:1;min-width:0;';
+  const val = el('span', 'sv', '65°C');
+  const row = el('div'); row.style.cssText = 'display:flex;align-items:center;gap:10px;margin:8px 0;';
+  row.append(slide, val);
+  slide.oninput = () => { val.textContent = slide.value + '°C'; };
+  const note = el('div', 'sub', 'The temperature at which the fan spins up. Lower = cooler and louder; higher = hotter and quieter.');
+  const set = el('button', 'ghost pb pb-s', 'Set threshold'); set.type = 'button';
+  set.style.cssText = 'margin-top:12px;';
+  set.onclick = async () => {
+    set.disabled = true; $('fanErr').textContent = '';
+    try {
+      const r = await api('POST', 'api/ftp/fan', { src: fanState.src, threshold: Number(slide.value) });
+      $('fanErr').textContent = (r && r.threshold != null) ? 'Fan threshold set to ' + r.threshold + '°C.' : 'Set.';
+    } catch (ex) { $('fanErr').textContent = ex.message; }
+    set.disabled = false;
+  };
+  box.append(el('div', 'syshead', 'Fan threshold (°C)'), row, note, set);
+  // Show the current temperature for context.
+  loadTemp(fanState.src).then(t => {
+    const v = t && t.cpu_temp != null ? t.cpu_temp : null;
+    if (v != null) $('fanSum').textContent = `${fanState.prof.name} (${fanState.prof.host}) · ${v}°C`;
+  }).catch(() => {});
+}
+$('fanClose').onclick = () => $('fanDlg').close();
+closeOnBackdrop($('fanDlg'));
 
 // ---- Save data (back up and restore a console's saves), inside the Installed dialog ----
 const saveKindName = k => k === 'savedata' ? 'PS4' : 'PS5';

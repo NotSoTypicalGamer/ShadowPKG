@@ -10691,6 +10691,38 @@ async function handleFtpRoute(req, res, url, p) {
     return bad(409, `the console refused: ${reason}${r.status === 403 ? ' (this zftpd build only allows Eject from its own web page, not from another program)' : ''}`);
   }
 
+  // This zftpd console's CPU temperature (°C), read from its own /api/stats/system (the same reading the
+  // System dialog shows). One lightweight call so the page can show it beside the console name.
+  if (req.method === 'GET' && p === '/api/ftp/temp') {
+    const prof = findFtpSource(url.searchParams.get('src'));
+    if (!prof) return bad(404, 'FTP console not found');
+    const z = await zftpdProbe(prof);
+    if (!z.present) return bad(409, 'this console is not running zftpd with its HTTP layer — load the zhttp build and try again');
+    const r = await zftpdGetAfterAnother(prof.ftpHost, prof.ftpPort || 2121, '/api/stats/system', 4000);
+    sendJson(res, 200, { cpu_temp: r && r.cpu_temp != null ? r.cpu_temp : null });
+    return true;
+  }
+
+  // Sets this zftpd console's fan threshold in °C (zftpd's own /api/admin/fan, clamped 40–90 on the console).
+  // A lower threshold spins the fan up sooner (cooler, louder); higher spins it up later (hotter, quieter).
+  // GET rather than POST: like the install route, zftpd's POST is behind its CSRF check while GET is not.
+  if (req.method === 'POST' && p === '/api/ftp/fan') {
+    const got = await readJson(req, 1 << 12);
+    if (got.error) return bad(got.status, got.error);
+    const prof = findFtpSource(got.body.src);
+    if (!prof) return bad(404, 'FTP console not found');
+    const z = await zftpdProbe(prof);
+    if (!z.present) return bad(409, 'this console is not running zftpd with its HTTP layer — load the zhttp build and try again');
+    const t = Math.round(Number(got.body.threshold));
+    if (!Number.isFinite(t)) return bad(400, 'a fan threshold in °C is required');
+    const threshold = Math.max(40, Math.min(90, t));
+    const r = await zftpdGetAfterAnother(prof.ftpHost, prof.ftpPort || 2121, '/api/admin/fan?threshold=' + threshold, 6000);
+    if (!r) return bad(502, 'the console did not answer');
+    if (r.error) return bad(409, r.error);
+    sendJson(res, 200, r);
+    return true;
+  }
+
   // A short on-screen message on a zftpd console (zftpd's own /api/notify), for trying it by hand — the same call
   // a finished build already makes automatically (see toastConsoles). At most 180 characters, the same limit
   // toastText keeps builds to; zftpd's own limit is 1023 bytes.
