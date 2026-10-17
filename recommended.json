@@ -10,6 +10,6 @@
   },
   {
     "repo": "NotSoTypicalGamer/DPIv2-Standalone-13.60",
-    "reason": "Standalone DPI — just the package installer, none of the rest of the suite. The install/uninstall fallback when zhttp isn't doing it."
+    "reason": "Standalone DPI — just the package installer, none of the rest of the suite. The install/uninstall fallback/alternative when zhttp isn't doing it."
   }
 ]
