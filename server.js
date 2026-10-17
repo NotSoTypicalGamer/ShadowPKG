@@ -9910,7 +9910,7 @@ function ftpOptsFor(prof) {
 // other one instead of failing with "could not connect".
 function ftpPortsOf(prof) {
   const out = [];
-  for (const p of [prof.ftpPort, 2121, 2120]) if (p && !out.includes(p)) out.push(p);
+  for (const p of [prof.ftpPort, 8888, 2121, 2120]) if (p && !out.includes(p)) out.push(p);
   return out;
 }
 // zftpd's FTP answers its 220 greeting with "Service ready for new user.", while
