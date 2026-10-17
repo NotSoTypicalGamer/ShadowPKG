@@ -2656,7 +2656,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const APP_VERSION = '1.0.47';
+const APP_VERSION = '1.0.48';
 $('appVer').textContent = 'v' + APP_VERSION;
 const ICON_DIR = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 const CHEV = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
@@ -4850,13 +4850,20 @@ async function loadDisc(id) {
 // in-flight request so a redraw doesn't pile requests onto a slow or off console.
 const ftpTemps = new Map();      // console id -> { cpu_temp, at }
 const ftpTempAsking = new Map(); // console id -> the one in-flight promise
+const delayMs = ms => new Promise(r => setTimeout(r, ms));
 async function loadTemp(id) {
   const hit = ftpTemps.get(id);
-  if (hit && Date.now() - hit.at < 30000) return hit;
+  if (hit && Date.now() - hit.at < (hit.cpu_temp != null ? 30000 : 10000)) return hit;
   if (!ftpTempAsking.has(id)) {
     const p = (async () => {
       let cpu_temp = null;
-      try { cpu_temp = (await api('GET', 'api/ftp/temp?src=' + encodeURIComponent(id))).cpu_temp; } catch {}
+      // The console can drop the temp request while it is still answering the probe/mounts on page load, so try
+      // a few times with a gap before giving up. A real reading caches 30s; a miss caches 10s so it retries soon.
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try { cpu_temp = (await api('GET', 'api/ftp/temp?src=' + encodeURIComponent(id))).cpu_temp; } catch {}
+        if (cpu_temp != null) break;
+        if (attempt < 2) await delayMs(1500);
+      }
       const out = { cpu_temp, at: Date.now() };
       ftpTemps.set(id, out);
       ftpTempAsking.delete(id);
